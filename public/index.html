@@ -1,688 +1,664 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Smart Home Control Panel</title>
-  <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://cdn.jsdelivr.net/npm/lodash@4.17.21/lodash.min.js"></script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Smart Home Control Panel</title>
+  <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-gray-100 text-gray-800">
- <div class="container mx-auto p-6">
-    <h1 class="text-3xl font-bold mb-6 text-center text-blue-800">Smart Home Control Panel</h1>
+  <div class="container mx-auto p-6">
+    <h1 class="text-3xl font-bold mb-6 text-center text-blue-800">Smart Home Control Panel</h1>
 
-    <!-- Dropdown Pilih MAC Address -->
-    <div class="mb-6 text-center bg-white p-4 rounded-lg shadow-md">
-      <label for="mac-select" class="font-semibold mr-2 text-lg">Pilih Perangkat:</label>
-      <select id="mac-select" class="px-4 py-2 border rounded-lg text-lg min-w-64">
-        <option value="">-- Pilih MAC Address --</option>
-      </select>
-    </div>
+    <!-- Dropdown Pilih MAC Address -->
+    <div class="mb-6 text-center bg-white p-4 rounded-lg shadow-md">
+      <label for="mac-select" class="font-semibold mr-2 text-lg">Pilih Perangkat:</label>
+      <select id="mac-select" class="px-4 py-2 border rounded-lg text-lg min-w-64">
+        <option value="">-- Pilih MAC Address --</option>
+      </select>
+    </div>
 
-    <!-- Panel Kontrol Relay -->
-    <div id="relay-panel" class="mb-6 bg-white p-6 rounded-lg shadow-md hidden">
-      <h2 class="text-xl font-bold mb-4 text-center text-green-700">Kontrol Relay</h2>
-      
-      <!-- Status Relay -->
-      <div class="text-center mb-4">
-        <span class="text-lg font-semibold">Status: </span>
-        <span id="relay-status" class="px-3 py-1 rounded-full text-white font-bold">UNKNOWN</span>
-      </div>
+    <!-- Panel Kontrol Relay -->
+    <div id="relay-panel" class="mb-6 bg-white p-6 rounded-lg shadow-md hidden">
+      <h2 class="text-xl font-bold mb-4 text-center text-green-700">Kontrol Relay</h2>
+      
+      <!-- Status Relay -->
+      <div class="text-center mb-4">
+        <span class="text-lg font-semibold">Status: </span>
+        <span id="relay-status" class="px-3 py-1 rounded-full text-white font-bold">UNKNOWN</span>
+      </div>
 
-      <!-- Tombol Kontrol -->
-      <div class="flex justify-center space-x-4 mb-4">
-        <button id="btn-on" class="px-6 py-3 bg-green-600 text-white font-bold rounded-lg hover:bg-green-700 transition transform hover:scale-105">
-          🔌 NYALAKAN
-        </button>
-        <button id="btn-off" class="px-6 py-3 bg-red-600 text-white font-bold rounded-lg hover:bg-red-700 transition transform hover:scale-105">
-          🔌 MATIKAN
-        </button>
-      </div>
+      <!-- Tombol Kontrol -->
+      <div class="flex justify-center space-x-4 mb-4">
+        <button id="btn-on" class="px-6 py-3 bg-green-600 text-white font-bold rounded-lg hover:bg-green-700 transition transform hover:scale-105">
+          🔌 NYALAKAN
+        </button>
+        <button id="btn-off" class="px-6 py-3 bg-red-600 text-white font-bold rounded-lg hover:bg-red-700 transition transform hover:scale-105">
+          🔌 MATIKAN
+        </button>
+      </div>
 
-      <!-- Riwayat Kontrol Relay -->
-      <div class="mt-6">
-        <h3 class="text-lg font-semibold mb-3 text-gray-700">Riwayat Status Relay (dari Perangkat)</h3>
-        <div class="max-h-40 overflow-y-auto">
-          <table class="w-full text-sm">
-            <thead class="bg-gray-200">
-              <tr>
-                <th class="py-2 px-3 text-left">Waktu</th>
-                <th class="py-2 px-3 text-left">Status</th>
-              </tr>
-            </thead>
-            <tbody id="relay-history" class="divide-y divide-gray-200">
-              <!-- Riwayat akan ditampilkan di sini -->
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
+      <!-- Riwayat Kontrol Relay -->
+      <div class="mt-6">
+        <h3 class="text-lg font-semibold mb-3 text-gray-700">Riwayat Status Relay (dari Perangkat)</h3>
+        <div class="max-h-40 overflow-y-auto">
+          <table class="w-full text-sm">
+            <thead class="bg-gray-200">
+              <tr>
+                <th class="py-2 px-3 text-left">Waktu</th>
+                <th class="py-2 px-3 text-left">Status</th>
+              </tr>
+            </thead>
+            <tbody id="relay-history" class="divide-y divide-gray-200">
+              <!-- Riwayat akan ditampilkan di sini -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
 
-    <!-- Filter Tanggal -->
-    <div class="mb-6 bg-white p-4 rounded-lg shadow-md">
-      <h3 class="text-lg font-semibold mb-4 text-gray-700">Filter Data Berdasarkan Tanggal</h3>
-      <div class="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
-        <div>
-          <label for="start-date" class="block text-sm font-medium text-gray-700 mb-1">Tanggal Mulai:</label>
-          <input type="date" id="start-date" class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500">
-        </div>
-        <div>
-          <label for="end-date" class="block text-sm font-medium text-gray-700 mb-1">Tanggal Akhir:</label>
-          <input type="date" id="end-date" class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500">
-        </div>
-        <div>
-          <button id="btn-filter" class="w-full px-4 py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition">
-            🔍 Filter Data
-          </button>
-        </div>
-        <div>
-          <button id="btn-clear-filter" class="w-full px-4 py-2 bg-gray-600 text-white font-semibold rounded-lg hover:bg-gray-700 transition">
-            🗑 Reset Filter
-          </button>
-        </div>
-      </div>
-    </div>
+    <!-- Filter Tanggal -->
+    <div class="mb-6 bg-white p-4 rounded-lg shadow-md">
+      <h3 class="text-lg font-semibold mb-4 text-gray-700">Filter Data Berdasarkan Tanggal</h3>
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+        <div>
+          <label for="start-date" class="block text-sm font-medium text-gray-700 mb-1">Tanggal Mulai:</label>
+          <input type="date" id="start-date" class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500">
+        </div>
+        <div>
+          <label for="end-date" class="block text-sm font-medium text-gray-700 mb-1">Tanggal Akhir:</label>
+          <input type="date" id="end-date" class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500">
+        </div>
+        <div>
+          <button id="btn-filter" class="w-full px-4 py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition">
+            🔍 Filter Data
+          </button>
+        </div>
+        <div>
+          <button id="btn-clear-filter" class="w-full px-4 py-2 bg-gray-600 text-white font-semibold rounded-lg hover:bg-gray-700 transition">
+            🗑 Reset Filter
+          </button>
+        </div>
+      </div>
+    </div>
 
-    <!-- Statistik Panel -->
-    <div id="statistics-panel" class="mb-6 bg-white p-6 rounded-lg shadow-md hidden">
-      <h3 class="text-lg font-semibold mb-4 text-gray-700">Statistik Konsumsi Energi</h3>
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div class="bg-blue-50 p-4 rounded-lg">
-          <h4 class="font-semibold text-blue-800">Tegangan Rata-rata</h4>
-          <p id="stat-voltage" class="text-2xl font-bold text-blue-600">-</p>
-        </div>
-        <div class="bg-green-50 p-4 rounded-lg">
-          <h4 class="font-semibold text-green-800">Arus Rata-rata</h4>
-          <p id="stat-current" class="text-2xl font-bold text-green-600">-</p>
-        </div>
-        <div class="bg-yellow-50 p-4 rounded-lg">
-          <h4 class="font-semibold text-yellow-800">Daya Rata-rata</h4>
-          <p id="stat-power" class="text-2xl font-bold text-yellow-600">-</p>
-        </div>
-        <div class="bg-purple-50 p-4 rounded-lg">
-          <h4 class="font-semibold text-purple-800">Total Daya</h4>
-          <p id="stat-total-power" class="text-2xl font-bold text-purple-600">-</p>
-        </div>
-        <div class="bg-red-50 p-4 rounded-lg">
-          <h4 class="font-semibold text-red-800">Konsumsi KWh</h4>
-          <p id="stat-consumption" class="text-2xl font-bold text-red-600">-</p>
-        </div>
-        <div class="bg-gray-50 p-4 rounded-lg">
-          <h4 class="font-semibold text-gray-800">Total Record</h4>
-          <p id="stat-records" class="text-2xl font-bold text-gray-600">-</p>
-        </div>
-      </div>
-    </div>
+    <!-- Statistik Panel -->
+    <div id="statistics-panel" class="mb-6 bg-white p-6 rounded-lg shadow-md hidden">
+      <h3 class="text-lg font-semibold mb-4 text-gray-700">Statistik Konsumsi Energi</h3>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div class="bg-blue-50 p-4 rounded-lg">
+          <h4 class="font-semibold text-blue-800">Tegangan Rata-rata</h4>
+          <p id="stat-voltage" class="text-2xl font-bold text-blue-600">-</p>
+        </div>
+        <div class="bg-green-50 p-4 rounded-lg">
+          <h4 class="font-semibold text-green-800">Arus Rata-rata</h4>
+          <p id="stat-current" class="text-2xl font-bold text-green-600">-</p>
+        </div>
+        <div class="bg-yellow-50 p-4 rounded-lg">
+          <h4 class="font-semibold text-yellow-800">Daya Rata-rata</h4>
+          <p id="stat-power" class="text-2xl font-bold text-yellow-600">-</p>
+        </div>
+        <div class="bg-purple-50 p-4 rounded-lg">
+          <h4 class="font-semibold text-purple-800">Total Daya</h4>
+          <p id="stat-total-power" class="text-2xl font-bold text-purple-600">-</p>
+        </div>
+        <div class="bg-red-50 p-4 rounded-lg">
+          <h4 class="font-semibold text-red-800">Konsumsi KWh</h4>
+          <p id="stat-consumption" class="text-2xl font-bold text-red-600">-</p>
+        </div>
+        <div class="bg-gray-50 p-4 rounded-lg">
+          <h4 class="font-semibold text-gray-800">Total Record</h4>
+          <p id="stat-records" class="text-2xl font-bold text-gray-600">-</p>
+        </div>
+      </div>
+    </div>
 
-    <!-- Tombol Reset dan Export -->
-    <div class="text-center mb-6 flex flex-wrap justify-center gap-4">
-      <button id="btn-statistics" class="px-4 py-2 bg-purple-600 text-white font-semibold rounded-lg hover:bg-purple-700 transition">
-        📊 Lihat Statistik
-      </button>
-      <button id="btn-latest-data" class="px-4 py-2 bg-indigo-600 text-white font-semibold rounded-lg hover:bg-indigo-700 transition">
-        🔄 Data Terbaru
-      </button>
-      <button onclick="if(confirm('Yakin ingin menghapus semua data energi?')) window.location.href='/api/reset-data'" class="px-4 py-2 bg-red-600 text-white font-semibold rounded-lg hover:bg-red-700 transition">
-        🗑 Reset Data Energi
-      </button>
-      <button id="btn-reset-relay" class="px-4 py-2 bg-orange-600 text-white font-semibold rounded-lg hover:bg-orange-700 transition">
-        🗑 Reset Data Relay
-      </button>
-      <button id="btn-export-csv" class="px-4 py-2 bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700 transition">
-        📄 Export CSV
-      </button>
-    </div>
+    <!-- Tombol Reset dan Export -->
+    <div class="text-center mb-6 flex flex-wrap justify-center gap-4">
+      <button id="btn-statistics" class="px-4 py-2 bg-purple-600 text-white font-semibold rounded-lg hover:bg-purple-700 transition">
+        📊 Lihat Statistik
+      </button>
+      <button id="btn-latest-data" class="px-4 py-2 bg-indigo-600 text-white font-semibold rounded-lg hover:bg-indigo-700 transition">
+        🔄 Data Terbaru
+      </button>
+      <button onclick="if(confirm('Yakin ingin menghapus semua data energi?')) window.location.href='/api/reset-data'" class="px-4 py-2 bg-red-600 text-white font-semibold rounded-lg hover:bg-red-700 transition">
+        🗑 Reset Data Energi
+      </button>
+      <button id="btn-reset-relay" class="px-4 py-2 bg-orange-600 text-white font-semibold rounded-lg hover:bg-orange-700 transition">
+        🗑 Reset Data Relay
+      </button>
+      <button id="btn-export-csv" class="px-4 py-2 bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700 transition">
+        📄 Export CSV
+      </button>
+    </div>
 
-    <!-- Informasi Data -->
-    <div class="mb-4 bg-blue-50 p-3 rounded-lg">
-      <div class="flex flex-wrap justify-between items-center text-sm text-blue-800">
-        <span id="data-info">Menampilkan data terbaru</span>
-        <span id="total-records" class="font-semibold"></span>
-      </div>
-    </div>
+    <!-- Informasi Data -->
+    <div class="mb-4 bg-blue-50 p-3 rounded-lg">
+      <div class="flex flex-wrap justify-between items-center text-sm text-blue-800">
+        <span id="data-info">Menampilkan data terbaru</span>
+        <span id="total-records" class="font-semibold"></span>
+      </div>
+    </div>
 
-    <!-- Tabel Data Konsumsi Energi -->
-    <div class="bg-white rounded-lg shadow-md overflow-hidden">
-      <h2 class="text-xl font-bold p-4 bg-blue-600 text-white">Data Konsumsi Energi</h2>
-      <div class="overflow-x-auto">
-        <table class="min-w-full">
-          <thead class="bg-blue-500 text-white">
-            <tr>
-              <th class="py-3 px-4 text-left">ID</th>
-              <th class="py-3 px-4 text-left">Tanggal</th>
-              <th class="py-3 px-4 text-left">Waktu</th>
-              <th class="py-3 px-4 text-left">Tegangan (V)</th>
-              <th class="py-3 px-4 text-left">Arus (A)</th>
-              <th class="py-3 px-4 text-left">Daya (W)</th>
-              <th class="py-3 px-4 text-left">KWh</th>
-              <th class="py-3 px-4 text-left">MAC Address</th>
-              <th class="py-3 px-4 text-left">Status Relay</th>
-              <th class="py-3 px-4 text-left">MQTT Topic</th>
-            </tr>
-          </thead>
-          <tbody id="data-table" class="divide-y divide-gray-200">
-            <!-- Data akan ditampilkan di sini -->
-          </tbody>
-        </table>
-      </div>
-    </div>
+    <!-- Tabel Data Konsumsi Energi -->
+    <div class="bg-white rounded-lg shadow-md overflow-hidden">
+      <h2 class="text-xl font-bold p-4 bg-blue-600 text-white">Data Konsumsi Energi</h2>
+      <div class="overflow-x-auto">
+        <table class="min-w-full">
+          <thead class="bg-blue-500 text-white">
+            <tr>
+              <th class="py-3 px-4 text-left">ID</th>
+              <th class="py-3 px-4 text-left">Tanggal</th>
+              <th class="py-3 px-4 text-left">Waktu</th>
+              <th class="py-3 px-4 text-left">Tegangan (V)</th>
+              <th class="py-3 px-4 text-left">Arus (A)</th>
+              <th class="py-3 px-4 text-left">Daya (W)</th>
+              <th class="py-3 px-4 text-left">KWh</th>
+              <th class="py-3 px-4 text-left">MAC Address</th>
+              <th class="py-3 px-4 text-left">Status Relay</th>
+              <th class="py-3 px-4 text-left">MQTT Topic</th>
+            </tr>
+          </thead>
+          <tbody id="data-table" class="divide-y divide-gray-200">
+            <!-- Data akan ditampilkan di sini -->
+          </tbody>
+        </table>
+      </div>
+    </div>
 
-    <!-- Loading dan Status -->
-    <div id="loading" class="hidden fixed top-4 right-4 bg-blue-600 text-white px-4 py-2 rounded-lg">
-      Memproses...
-    </div>
-    
-    <div id="notification" class="hidden fixed top-4 right-4 px-4 py-2 rounded-lg text-white font-semibold">
-    </div>
-  </div>
+    <!-- Loading dan Status -->
+    <div id="loading" class="hidden fixed top-4 right-4 bg-blue-600 text-white px-4 py-2 rounded-lg">
+      Memproses...
+    </div>
+    
+    <div id="notification" class="hidden fixed top-4 right-4 px-4 py-2 rounded-lg text-white font-semibold">
+    </div>
+  </div>
 
-  <script>
-    // App state dengan proteksi
-    const state = {
-      _selectedMac: '',
-      _currentData: [],
-      _isProcessing: false,
-      _intervals: {},
-      get selectedMac() {
-        return this._selectedMac;
-      },
-      set selectedMac(value) {
-        this._selectedMac = value;
-        // Panggil setupAutoRefresh di sini saat selectedMac berubah
-        this.setupAutoRefresh(); 
-      },
-      get currentData() {
-        return this._currentData;
-      },
-      set currentData(value) {
-        this._currentData = Array.isArray(value) ? value : [];
-      },
-      get isProcessing() {
-        return this._isProcessing;
-      },
-      set isProcessing(value) {
-        this._isProcessing = Boolean(value);
-        const loadingElement = document.getElementById('loading');
-        if (loadingElement) { // Pastikan elemen ada
-          if (this._isProcessing) {
-            loadingElement.classList.remove('hidden');
-          } else {
-            loadingElement.classList.add('hidden');
-          }
-        }
-      },
-      // Tambahkan method setupAutoRefresh di sini, di dalam objek state
-      setupAutoRefresh() {
-        // Clear all previous intervals
-        Object.values(this._intervals).forEach(interval => clearInterval(interval));
-        this._intervals = {};
+  <script>
+    // App state
+    const state = {
+      selectedMac: '',
+      currentData: [],
+      isLoading: false,
+      intervals: {
+        dataRefresh: null,
+        relayRefresh: null
+      }
+    };
 
-        if (this._selectedMac) {
-          // Auto refresh data setiap 30 detik (hanya jika tidak ada filter tanggal)
-          this._intervals.dataRefresh = setInterval(() => {
-            if (this._selectedMac && !document.getElementById('start-date').value && 
-                !document.getElementById('end-date').value && !this.isProcessing) {
-              uiController.loadEnergyData(); // Panggil dari uiController
-              uiController.loadRelayStatus();
-            }
-          }, 30000);
+    // DOM elements
+    const elements = {
+      macSelect: document.getElementById('mac-select'),
+      tableBody: document.getElementById('data-table'),
+      relayPanel: document.getElementById('relay-panel'),
+      relayStatus: document.getElementById('relay-status'),
+      btnOn: document.getElementById('btn-on'),
+      btnOff: document.getElementById('btn-off'),
+      relayHistory: document.getElementById('relay-history'),
+      btnResetRelay: document.getElementById('btn-reset-relay'),
+      loading: document.getElementById('loading'),
+      notification: document.getElementById('notification'),
+      statisticsPanel: document.getElementById('statistics-panel'),
+      startDate: document.getElementById('start-date'),
+      endDate: document.getElementById('end-date'),
+      btnFilter: document.getElementById('btn-filter'),
+      btnClearFilter: document.getElementById('btn-clear-filter'),
+      btnExportCsv: document.getElementById('btn-export-csv'),
+      btnStatistics: document.getElementById('btn-statistics'),
+      btnLatestData: document.getElementById('btn-latest-data'),
+      dataInfo: document.getElementById('data-info'),
+      totalRecords: document.getElementById('total-records')
+    };
 
-          // Auto refresh riwayat setiap 15 detik
-          this._intervals.relayRefresh = setInterval(() => {
-            if (this._selectedMac && !this.isProcessing) {
-              uiController.loadRelayHistory(); // Panggil dari uiController
-            }
-          }, 15000);
-        }
-      }
-    };
+    // Set default dates (last 7 days)
+    function setDefaultDates() {
+      const today = new Date();
+      const weekAgo = new Date(today);
+      weekAgo.setDate(today.getDate() - 7);
+      
+      elements.endDate.value = today.toISOString().split('T')[0];
+      elements.startDate.value = weekAgo.toISOString().split('T')[0];
+    }
 
-    // DOM elements
-    const elements = {
-      macSelect: document.getElementById('mac-select'),
-      tableBody: document.getElementById('data-table'),
-      relayPanel: document.getElementById('relay-panel'),
-      relayStatus: document.getElementById('relay-status'),
-      btnOn: document.getElementById('btn-on'),
-      btnOff: document.getElementById('btn-off'),
-      relayHistory: document.getElementById('relay-history'),
-      btnResetRelay: document.getElementById('btn-reset-relay'),
-      loading: document.getElementById('loading'),
-      notification: document.getElementById('notification'),
-      statisticsPanel: document.getElementById('statistics-panel'),
-      startDate: document.getElementById('start-date'),
-      endDate: document.getElementById('end-date'),
-      btnFilter: document.getElementById('btn-filter'),
-      btnClearFilter: document.getElementById('btn-clear-filter'),
-      btnExportCsv: document.getElementById('btn-export-csv'),
-      btnStatistics: document.getElementById('btn-statistics'),
-      btnLatestData: document.getElementById('btn-latest-data'),
-      dataInfo: document.getElementById('data-info'),
-      totalRecords: document.getElementById('total-records')
-    };
+    // Utility functions
+    function showNotification(message, type = 'success') {
+      elements.notification.textContent = message;
+      elements.notification.className = `fixed top-4 right-4 px-4 py-2 rounded-lg text-white font-semibold ${
+        type === 'success' ? 'bg-green-600' : 'bg-red-600'
+      }`;
+      elements.notification.classList.remove('hidden');
+      
+      setTimeout(() => {
+        elements.notification.classList.add('hidden');
+      }, 3000);
+    }
 
-    // Utility functions dengan error handling
-    const utils = {
-      showNotification: (message, type = 'success') => {
-        const notification = document.getElementById('notification');
-        notification.textContent = message;
-        notification.className = `fixed top-4 right-4 px-4 py-2 rounded-lg text-white font-semibold ${
-          type === 'success' ? 'bg-green-600' : 'bg-red-600'
-        }`;
-        notification.classList.remove('hidden');
-        
-        setTimeout(() => {
-          notification.classList.add('hidden');
-        }, 3000);
-      },
-      
-      safeParseFloat: (value) => {
-        const num = parseFloat(value);
-        return isNaN(num) ? 0 : num;
-      },
-      
-      formatDate: (dateString) => {
-        try {
-          return new Date(dateString).toISOString().split('T')[0];
-        } catch {
-          return '';
-        }
-      }
-    };
+    function showLoading() {
+      if (state.isLoading) return;
+      state.isLoading = true;
+      elements.loading.classList.remove('hidden');
+    }
 
-    // API Service dengan queue dan timeout
-    const apiService = {
-      queue: [],
-      activeRequests: 0,
-      maxConcurrent: 2,
-      
-      async request(url, config = {}) {
-        return new Promise((resolve, reject) => {
-          const task = async () => {
-            try {
-              const response = await axios({
-                url,
-                timeout: 8000,
-                ...config
-              });
-              resolve(response.data);
-            } catch (error) {
-              console.error('API Request Error:', error);
-              utils.showNotification(`API Error: ${error.message || 'Unknown error'}`, 'error');
-              reject(error);
-            } finally {
-              // This ensures state.isProcessing is always false after a request
-              // unless another request is immediately queued.
-              if (apiService.activeRequests === 1 && apiService.queue.length === 0) {
-                state.isProcessing = false;
-              }
-            }
-          };
-          
-          this.queue.push({ task, resolve, reject });
-          this.processQueue();
-        });
-      },
-      
-      processQueue() {
-        if (!state.isProcessing && this.queue.length > 0) {
-          state.isProcessing = true; // Set to true when starting to process
-        }
+    function hideLoading() {
+      state.isLoading = false;
+      elements.loading.classList.add('hidden');
+    }
 
-        while (this.activeRequests < this.maxConcurrent && this.queue.length > 0) {
-          this.activeRequests++;
-          const { task, resolve, reject } = this.queue.shift();
-          
-          task()
-            .then(resolve)
-            .catch(reject)
-            .finally(() => {
-              this.activeRequests--;
-              // Ensure state.isProcessing is updated only after all requests are done
-              if (this.activeRequests === 0 && this.queue.length === 0) {
-                state.isProcessing = false;
-              }
-              this.processQueue(); // Process next in queue
-            });
-        }
-      },
-      
-      async getMacList() {
-        return this.request('/api/mac-list');
-      },
-      
-      async getEnergyData(mac, startDate, endDate) {
-        const params = new URLSearchParams();
-        params.append('mac', mac);
-        if (startDate && endDate) {
-          params.append('start_date', startDate);
-          params.append('end_date', endDate);
-        }
-        return this.request(`/api/data?${params.toString()}`);
-      },
-      
-      async getRelayStatus(mac) {
-        return this.request(`/api/relay-status?mac=${encodeURIComponent(mac)}`);
-      },
-      
-      async getRelayHistory(mac) {
-        return this.request(`/api/relay-history?mac=${encodeURIComponent(mac)}`);
-      },
-      
-      async controlRelay(mac, status) {
-        return this.request('/api/relay-control', {
-          method: 'POST',
-          data: { mac_address: mac, status }
-        });
-      },
+    function debounce(func, wait) {
+      let timeout;
+      return function executedFunction(...args) {
+        const later = () => {
+          clearTimeout(timeout);
+          func(...args);
+        };
+        clearTimeout(timeout);
+        timeout = setTimeout(later, wait);
+      };
+    }
 
-      async getStatistics(mac, startDate, endDate) {
-        const params = new URLSearchParams();
-        params.append('mac', mac);
-        if (startDate && endDate) {
-          params.append('start_date', startDate);
-          params.append('end_date', endDate);
-        }
-        return this.request(`/api/statistics?${params.toString()}`);
-      },
+    // Clear all intervals
+    function clearAllIntervals() {
+      Object.values(state.intervals).forEach(interval => {
+        if (interval) clearInterval(interval);
+      });
+      state.intervals = { dataRefresh: null, relayRefresh: null };
+    }
 
-      async exportCsv(mac, startDate, endDate) {
-        const params = new URLSearchParams();
-        params.append('mac', mac);
-        if (startDate && endDate) {
-          params.append('start_date', startDate);
-          params.append('end_date', endDate);
-        }
-        // Perhatikan: Axios tidak cocok untuk mengunduh file biner langsung seperti ini,
-        // karena responsnya sudah di-handle oleh browser via link.href.
-        // Jadi, fungsi ini hanya akan membangun URL.
-        // Jika Anda ingin menggunakan Axios untuk download dan handle blob, perlu responseType: 'blob'
-        return `/api/export-csv?${params.toString()}`;
-      }
-    };
+    // Update info data
+    function updateDataInfo() {
+      const startDateVal = elements.startDate.value;
+      const endDateVal = elements.endDate.value;
+      
+      if (startDateVal && endDateVal) {
+        elements.dataInfo.textContent = Menampilkan data dari ${startDateVal} sampai ${endDateVal};
+      } else {
+        elements.dataInfo.textContent = 'Menampilkan data terbaru (20 record terakhir)';
+      }
+      
+      elements.totalRecords.textContent = Total: ${state.currentData.length} record;
+    }
 
-    // UI Controller dengan debounce dan throttling
-    const uiController = {
-      init() {
-        this.setupEventListeners();
-        this.setDefaultDates();
-        this.loadMacList();
-        this.updateDataInfo(); // Panggil ini juga saat inisialisasi
-      },
-      
-      setupEventListeners() {
-        // Dapatkan instance Lodash
-        const _ = window._; // Memastikan Lodash sudah dimuat
+    // API calls with error handling
+    async function apiCall(url, options = {}) {
+      try {
+        const response = await axios({
+          url,
+          timeout: 10000,
+          ...options
+        });
+        return response.data;
+      } catch (error) {
+        console.error('API Error:', error);
+        throw error;
+      }
+    }
 
-        // Debounced event listeners
-        elements.macSelect.addEventListener('change', 
-          _.debounce(this.handleMacSelect.bind(this), 300));
-        
-        elements.btnFilter.addEventListener('click', 
-          _.throttle(this.handleFilterClick.bind(this), 1000));
-        
-        // Regular event listeners
-        elements.btnOn.addEventListener('click', 
-          this.handleRelayOn.bind(this));
-        elements.btnOff.addEventListener('click', 
-          this.handleRelayOff.bind(this));
+    // Fetch MAC list
+    async function fetchMacList() {
+      try {
+        const macs = await apiCall('/api/mac-list');
+        elements.macSelect.innerHTML = '<option value="">-- Pilih MAC Address --</option>';
+        macs.forEach(mac => {
+          const option = document.createElement('option');
+          option.value = mac.mac_address;
+          option.textContent = 📱 ${mac.mac_address};
+          elements.macSelect.appendChild(option);
+        });
+      } catch (error) {
+        showNotification('Gagal mengambil daftar perangkat', 'error');
+      }
+    }
 
-        elements.btnClearFilter.addEventListener('click', this.handleClearFilter.bind(this));
-        elements.btnExportCsv.addEventListener('click', this.handleExportCsv.bind(this));
-        elements.btnStatistics.addEventListener('click', this.handleStatistics.bind(this));
-        elements.btnLatestData.addEventListener('click', this.handleLatestData.bind(this));
-        elements.btnResetRelay.addEventListener('click', this.handleResetRelay.bind(this));
+    // Fetch data with debouncing
+    const fetchData = debounce(async function() {
+      if (!state.selectedMac || state.isLoading) return;
 
-        // Cleanup on page unload
-        window.addEventListener('beforeunload', this.cleanup.bind(this));
-      },
-      
-      // Set default dates (last 7 days)
-      setDefaultDates() {
-        const today = new Date();
-        const weekAgo = new Date(today);
-        weekAgo.setDate(today.getDate() - 7);
-        
-        elements.endDate.value = today.toISOString().split('T')[0];
-        elements.startDate.value = weekAgo.toISOString().split('T')[0];
-      },
+      let url = '/api/data?mac=' + encodeURIComponent(state.selectedMac);
+      
+      if (elements.startDate.value && elements.endDate.value) {
+        url += &start_date=${elements.startDate.value}&end_date=${elements.endDate.value};
+      }
 
-      // Update info data (sudah diperbaiki template literalnya)
-      updateDataInfo() {
-        const startDateVal = elements.startDate.value;
-        const endDateVal = elements.endDate.value;
-        
-        if (startDateVal && endDateVal) {
-          elements.dataInfo.textContent = `Menampilkan data dari ${startDateVal} sampai ${endDateVal}`;
-        } else {
-          elements.dataInfo.textContent = 'Menampilkan data terbaru (20 record terakhir)';
-        }
-        
-        elements.totalRecords.textContent = `Total: ${state.currentData.length} record`;
-      },
+      try {
+        const data = await apiCall(url);
+        state.currentData = data;
+        renderTable(data);
+        updateDataInfo();
+      } catch (error) {
+        showNotification('Gagal mengambil data', 'error');
+      }
+    }, 300);
 
-      async loadMacList() {
-        try {
-          const macs = await apiService.getMacList();
-          elements.macSelect.innerHTML = '<option value="">-- Pilih MAC Address --</option>';
-          macs.forEach(mac => {
-            const option = document.createElement('option');
-            option.value = mac.mac_address;
-            option.textContent = `📱 ${mac.mac_address}`;
-            elements.macSelect.appendChild(option);
-          });
-        } catch (error) {
-          console.error('Gagal mengambil daftar perangkat:', error);
-          utils.showNotification('Gagal mengambil daftar perangkat', 'error');
-        }
-      },
+    // Render table
+    function renderTable(data) {
+      elements.tableBody.innerHTML = '';
 
-      async handleFilterClick() {
-        if (!elements.startDate.value || !elements.endDate.value) {
-          utils.showNotification('Pilih tanggal mulai dan akhir', 'error');
-          return;
-        }
-        
-        if (new Date(elements.startDate.value) > new Date(elements.endDate.value)) {
-          utils.showNotification('Tanggal mulai tidak boleh lebih besar dari tanggal akhir', 'error');
-          return;
-        }
-        
-        this.loadEnergyData();
-      },
+      if (data.length === 0) {
+        elements.tableBody.innerHTML = '<tr><td colspan="10" class="text-center py-4 text-gray-500">Tidak ada data untuk periode yang dipilih</td></tr>';
+        return;
+      }
 
-      async handleClearFilter() {
-        elements.startDate.value = '';
-        elements.endDate.value = '';
-        elements.statisticsPanel.classList.add('hidden');
-        if (state.selectedMac) {
-          this.loadEnergyData();
-        }
-        this.updateDataInfo();
-      },
+      const fragment = document.createDocumentFragment();
+      data.forEach(row => {
+        const tr = document.createElement('tr');
+        tr.className = "hover:bg-gray-50";
+        tr.innerHTML = `
+          <td class="py-2 px-4">${row.id || '-'}</td>
+          <td class="py-2 px-4">${row.tanggal || '-'}</td>
+          <td class="py-2 px-4">${row.waktu || '-'}</td>
+          <td class="py-2 px-4">${row.tegangan ? row.tegangan + ' V' : '-'}</td>
+          <td class="py-2 px-4">${row.arus ? row.arus + ' A' : '-'}</td>
+          <td class="py-2 px-4">${row.daya ? row.daya + ' W' : '-'}</td>
+          <td class="py-2 px-4">${row.kwh || '-'}</td>
+          <td class="py-2 px-4 font-mono text-sm">${row.mac_address || '-'}</td>
+          <td class="py-2 px-4">
+            ${row.relay_status ? `<span class="px-2 py-1 rounded text-xs font-bold ${
+              row.relay_status === 'ON' ? 'bg-green-100 text-green-800' : 
+              row.relay_status === 'OFF' ? 'bg-red-100 text-red-800' : 'bg-gray-100 text-gray-800'
+            }">${row.relay_status}</span>` : '-'}
+          </td>
+          <td class="py-2 px-4 font-mono text-xs">${row.mqtt_topic || '-'}</td>
+        `;
+        fragment.appendChild(tr);
+      });
+      elements.tableBody.appendChild(fragment);
+    }
 
-      async loadRelayStatus() {
-        if (!state.selectedMac) return;
+    // Fetch latest data
+    async function fetchLatestData() {
+      if (!state.selectedMac) {
+        showNotification('Pilih perangkat terlebih dahulu', 'error');
+        return;
+      }
 
-        try {
-          const response = await apiService.getRelayStatus(state.selectedMac);
-          const status = response.status;
-          elements.relayStatus.textContent = status;
-          
-          if (status === 'ON') {
-            elements.relayStatus.className = 'px-3 py-1 rounded-full text-white font-bold bg-green-600';
-          } else if (status === 'OFF') {
-            elements.relayStatus.className = 'px-3 py-1 rounded-full text-white font-bold bg-red-600';
-          } else {
-            elements.relayStatus.className = 'px-3 py-1 rounded-full text-white font-bold bg-gray-500';
-          }
-        } catch (error) {
-          console.error('Gagal mengambil status relay:', error);
-          // Notifikasi tidak perlu di sini karena ini auto-refresh, bisa mengganggu
-        }
-      },
+      showLoading();
+      try {
+        const data = await apiCall('/api/latest-data?mac=' + encodeURIComponent(state.selectedMac));
+        
+        if (Object.keys(data).length === 0) {
+          showNotification('Tidak ada data untuk perangkat ini', 'error');
+          return;
+        }
 
-      async loadRelayHistory() {
-        if (!state.selectedMac) return;
+        renderTable([data]);
+        state.currentData = [data];
+        elements.dataInfo.textContent = 'Menampilkan data terbaru';
+        elements.totalRecords.textContent = 'Total: 1 record (terbaru)';
+        
+        showNotification('Data terbaru berhasil dimuat');
+      } catch (error) {
+        showNotification('Gagal mengambil data terbaru', 'error');
+      } finally {
+        hideLoading();
+      }
+    }
 
-        try {
-          const history = await apiService.getRelayHistory(state.selectedMac);
-          elements.relayHistory.innerHTML = '';
+    // Fetch statistics
+    async function fetchStatistics() {
+      if (!state.selectedMac) {
+        showNotification('Pilih perangkat terlebih dahulu', 'error');
+        return;
+      }
 
-          if (history.length === 0) {
-            elements.relayHistory.innerHTML = '<tr><td colspan="2" class="text-center py-2 text-gray-500">Tidak ada riwayat</td></tr>';
-            return;
-          }
+      let url = '/api/statistics?mac=' + encodeURIComponent(state.selectedMac);
+      
+      if (elements.startDate.value && elements.endDate.value) {
+        url += &start_date=${elements.startDate.value}&end_date=${elements.endDate.value};
+      }
 
-          const fragment = document.createDocumentFragment();
-          history.forEach(item => {
-            const tr = document.createElement('tr');
-            // Pastikan item.timestamp sudah diformat di backend, atau format di sini
-            const timestamp = item.timestamp || `${item.tanggal} ${item.waktu}`; // Perbaikan template literal
-            const statusClass = item.relay_status === 'ON' ? 'text-green-600 font-bold' : 'text-red-600 font-bold';
-            
-            tr.innerHTML = `
-              <td class="py-1 px-3 text-xs">${timestamp}</td>
-              <td class="py-1 px-3 ${statusClass}">${item.relay_status}</td>
-            `;
-            fragment.appendChild(tr);
-          });
-          elements.relayHistory.appendChild(fragment);
-        } catch (error) {
-          console.error('Gagal mengambil riwayat relay:', error);
-        }
-      },
+      showLoading();
+      try {
+        const data = await apiCall(url);
+        const stats = data.statistics;
+        
+        document.getElementById('stat-voltage').textContent = stats.average_voltage + ' V';
+        document.getElementById('stat-current').textContent = stats.average_current + ' A';
+        document.getElementById('stat-power').textContent = stats.average_power + ' W';
+        document.getElementById('stat-total-power').textContent = stats.total_power + ' W';
+        document.getElementById('stat-consumption').textContent = stats.energy_range.consumption_kwh + ' kWh';
+        document.getElementById('stat-records').textContent = stats.total_records;
+        
+        elements.statisticsPanel.classList.remove('hidden');
+        showNotification('Statistik berhasil dimuat');
+      } catch (error) {
+        showNotification('Gagal mengambil statistik', 'error');
+      } finally {
+        hideLoading();
+      }
+    }
 
-      async handleRelayOn() {
-        await this.controlRelay('ON');
-      },
-      async handleRelayOff() {
-        await this.controlRelay('OFF');
-      },
+    // Export CSV
+    function exportCSV() {
+      if (!state.selectedMac) {
+        showNotification('Pilih perangkat terlebih dahulu', 'error');
+        return;
+      }
 
-      async controlRelay(status) {
-        if (!state.selectedMac) {
-          utils.showNotification('Pilih perangkat terlebih dahulu', 'error');
-          return;
-        }
+      if (state.currentData.length === 0) {
+        showNotification('Tidak ada data untuk diekspor', 'error');
+        return;
+      }
 
-        try {
-          await apiService.controlRelay(state.selectedMac, status);
-          utils.showNotification(`Relay berhasil di${status === 'ON' ? 'nyalakan' : 'matikan'}`); // Perbaikan template literal
-          // Segera refresh status dan history
-          await Promise.all([
-            this.loadRelayStatus(),
-            this.loadRelayHistory()
-          ]);
-        } catch (error) {
-          utils.showNotification('Gagal mengontrol relay', 'error');
-        }
-      },
+      let url = '/api/export-csv?mac=' + encodeURIComponent(state.selectedMac);
+      
+      if (elements.startDate.value && elements.endDate.value) {
+        url += &start_date=${elements.startDate.value}&end_date=${elements.endDate.value};
+      }
 
-      async handleStatistics() {
-        if (!state.selectedMac) {
-          utils.showNotification('Pilih perangkat terlebih dahulu', 'error');
-          return;
-        }
+      showLoading();
+      
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = energy_data_${state.selectedMac.replace(/:/g, '')}_${new Date().toISOString().split('T')[0]}.csv;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      hideLoading();
+      showNotification('File CSV berhasil diunduh');
+    }
 
-        const startDate = elements.startDate.value;
-        const endDate = elements.endDate.value;
+    // Fetch relay status
+    async function fetchRelayStatus() {
+      if (!state.selectedMac) return;
 
-        try {
-          const data = await apiService.getStatistics(state.selectedMac, startDate, endDate);
-          const stats = data.statistics;
-          
-          document.getElementById('stat-voltage').textContent = `${utils.safeParseFloat(stats.average_voltage)} V`;
-          document.getElementById('stat-current').textContent = `${utils.safeParseFloat(stats.average_current)} A`;
-          document.getElementById('stat-power').textContent = `${utils.safeParseFloat(stats.average_power)} W`;
-          document.getElementById('stat-total-power').textContent = `${utils.safeParseFloat(stats.total_power)} W`;
-          document.getElementById('stat-consumption').textContent = `${utils.safeParseFloat(stats.energy_range.consumption_kwh)} kWh`;
-          document.getElementById('stat-records').textContent = stats.total_records;
-          
-          elements.statisticsPanel.classList.remove('hidden');
-          utils.showNotification('Statistik berhasil dimuat');
-        } catch (error) {
-          utils.showNotification('Gagal mengambil statistik', 'error');
-        }
-      },
+      try {
+        const response = await apiCall('/api/relay-status?mac=' + encodeURIComponent(state.selectedMac));
+        const status = response.status;
+        elements.relayStatus.textContent = status;
+        
+        if (status === 'ON') {
+          elements.relayStatus.className = 'px-3 py-1 rounded-full text-white font-bold bg-green-600';
+        } else if (status === 'OFF') {
+          elements.relayStatus.className = 'px-3 py-1 rounded-full text-white font-bold bg-red-600';
+        } else {
+          elements.relayStatus.className = 'px-3 py-1 rounded-full text-white font-bold bg-gray-500';
+        }
+      } catch (error) {
+        console.error('Gagal mengambil status relay:', error);
+      }
+    }
 
-      async handleLatestData() {
-        if (!state.selectedMac) {
-          utils.showNotification('Pilih perangkat terlebih dahulu', 'error');
-          return;
-        }
+    // Fetch relay history
+    async function fetchRelayHistory() {
+      if (!state.selectedMac) return;
 
-        try {
-          const data = await apiService.request('/api/latest-data?mac=' + encodeURIComponent(state.selectedMac));
-          
-          if (Object.keys(data).length === 0) {
-            utils.showNotification('Tidak ada data terbaru untuk perangkat ini', 'error');
-            return;
-          }
+      try {
+        const history = await apiCall('/api/relay-history?mac=' + encodeURIComponent(state.selectedMac));
+        elements.relayHistory.innerHTML = '';
 
-          state.currentData = [data];
-          this.renderTable([data]);
-          elements.dataInfo.textContent = 'Menampilkan data terbaru';
-          elements.totalRecords.textContent = 'Total: 1 record (terbaru)';
-          
-          utils.showNotification('Data terbaru berhasil dimuat');
-        } catch (error) {
-          utils.showNotification('Gagal mengambil data terbaru', 'error');
-        }
-      },
+        if (history.length === 0) {
+          elements.relayHistory.innerHTML = '<tr><td colspan="2" class="text-center py-2 text-gray-500">Tidak ada riwayat</td></tr>';
+          return;
+        }
 
-      async handleExportCsv() {
-        if (!state.selectedMac) {
-          utils.showNotification('Pilih perangkat terlebih dahulu', 'error');
-          return;
-        }
+        const fragment = document.createDocumentFragment();
+        history.forEach(item => {
+          const tr = document.createElement('tr');
+          const timestamp = item.timestamp || ${item.tanggal} ${item.waktu};
+          const statusClass = item.relay_status === 'ON' ? 'text-green-600 font-bold' : 'text-red-600 font-bold';
+          
+          tr.innerHTML = `
+            <td class="py-1 px-3 text-xs">${timestamp}</td>
+            <td class="py-1 px-3 ${statusClass}">${item.relay_status}</td>
+          `;
+          fragment.appendChild(tr);
+        });
+        elements.relayHistory.appendChild(fragment);
+      } catch (error) {
+        console.error('Gagal mengambil riwayat relay:', error);
+      }
+    }
 
-        if (state.currentData.length === 0) {
-          utils.showNotification('Tidak ada data untuk diekspor', 'error');
-          return;
-        }
+    // Control relay
+    async function controlRelay(status) {
+      if (!state.selectedMac) {
+        showNotification('Pilih perangkat terlebih dahulu', 'error');
+        return;
+      }
 
-        const startDate = elements.startDate.value;
-        const endDate = elements.endDate.value;
+      showLoading();
+      try {
+        await apiCall('/api/relay-control', {
+          method: 'POST',
+          data: {
+            mac_address: state.selectedMac,
+            status: status
+          }
+        });
+        
+        showNotification(Relay berhasil di${status === 'ON' ? 'nyalakan' : 'matikan'});
+        await fetchRelayStatus();
+        await fetchRelayHistory();
+      } catch (error) {
+        showNotification('Gagal mengontrol relay', 'error');
+      } finally {
+        hideLoading();
+      }
+    }
 
-        // apiService.exportCsv hanya mengembalikan URL, bukan melakukan request Axios
-        const urlToDownload = await apiService.exportCsv(state.selectedMac, startDate, endDate);
-        
-        const link = document.createElement('a');
-        link.href = urlToDownload;
-        link.download = `energy_data_${state.selectedMac.replace(/:/g, '')}_${startDate || 'all'}_${endDate || 'all'}.csv`; // Perbaikan nama file
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        
-        utils.showNotification('File CSV berhasil diunduh');
-      },
+    // Setup auto refresh
+    function setupAutoRefresh() {
+      clearAllIntervals();
+      
+      if (state.selectedMac) {
+        // Auto refresh data setiap 30 detik (hanya jika tidak ada filter tanggal)
+        state.intervals.dataRefresh = setInterval(() => {
+          if (state.selectedMac && !elements.startDate.value && !elements.endDate.value && !state.isLoading) {
+            fetchData();
+            fetchRelayStatus();
+          }
+        }, 30000);
 
-      async handleResetRelay() {
-        if (confirm('Yakin ingin menghapus semua data riwayat relay?')) {
-          try {
-            await apiService.request('/api/reset-relay-data');
-            utils.showNotification('Data relay berhasil direset');
-            if (state.selectedMac) {
-              await Promise.all([
-                this.loadRelayHistory(),
-                this.loadEnergyData()
-              ]);
-            }
-          } catch (error) {
-            utils.showNotification('Gagal reset data relay', 'error');
-          }
-        }
-      },
+        // Auto refresh riwayat setiap 15 detik
+        state.intervals.relayRefresh = setInterval(() => {
+          if (state.selectedMac && !state.isLoading) {
+            fetchRelayHistory();
+          }
+        }, 15000);
+      }
+    }
 
-      // ... (lanjutkan dengan fungsi lainnya)
-    };
+    // Event listeners setup
+    function setupEventListeners() {
+      // MAC select change
+      elements.macSelect.addEventListener('change', async (e) => {
+        state.selectedMac = e.target.value;
+        
+        clearAllIntervals();
+        
+        if (state.selectedMac) {
+          elements.relayPanel.classList.remove('hidden');
+          await Promise.all([
+            fetchData(),
+            fetchRelayStatus(),
+            fetchRelayHistory()
+          ]);
+          setupAutoRefresh();
+        } else {
+          elements.relayPanel.classList.add('hidden');
+          elements.statisticsPanel.classList.add('hidden');
+          elements.tableBody.innerHTML = '';
+          state.currentData = [];
+          updateDataInfo();
+        }
+      });
 
-    // Initialize the app
-    document.addEventListener('DOMContentLoaded', () => {
-      uiController.init();
-    });
-  </script>
+      // Relay control buttons
+      elements.btnOn.addEventListener('click', () => controlRelay('ON'));
+      elements.btnOff.addEventListener('click', () => controlRelay('OFF'));
+
+      // Filter buttons
+      elements.btnFilter.addEventListener('click', () => {
+        if (!elements.startDate.value || !elements.endDate.value) {
+          showNotification('Pilih tanggal mulai dan akhir', 'error');
+          return;
+        }
+        
+        if (new Date(elements.startDate.value) > new Date(elements.endDate.value)) {
+          showNotification('Tanggal mulai tidak boleh lebih besar dari tanggal akhir', 'error');
+          return;
+        }
+        
+        fetchData();
+      });
+
+      elements.btnClearFilter.addEventListener('click', () => {
+        elements.startDate.value = '';
+        elements.endDate.value = '';
+        elements.statisticsPanel.classList.add('hidden');
+        if (state.selectedMac) {
+          fetchData();
+        }
+      });
+
+      // Action buttons
+      elements.btnExportCsv.addEventListener('click', exportCSV);
+      elements.btnStatistics.addEventListener('click', fetchStatistics);
+      elements.btnLatestData.addEventListener('click', fetchLatestData);
+
+      // Reset relay button
+      elements.btnResetRelay.addEventListener('click', async () => {
+        if (confirm('Yakin ingin menghapus semua data riwayat relay?')) {
+          showLoading();
+          try {
+            await apiCall('/api/reset-relay-data');
+            showNotification('Data relay berhasil direset');
+            if (state.selectedMac) {
+              await fetchRelayHistory();
+              await fetchData();
+            }
+          } catch (error) {
+            showNotification('Gagal reset data relay', 'error');
+          } finally {
+            hideLoading();
+          }
+        }
+      });
+    }
+
+    // Initialize app
+    async function init() {
+      setDefaultDates();
+      updateDataInfo();
+      setupEventListeners();
+      
+      try {
+        await fetchMacList();
+      } catch (error) {
+        showNotification('Gagal memuat aplikasi', 'error');
+      }
+    }
+
+    // Cleanup on page unload
+    window.addEventListener('beforeunload', () => {
+      clearAllIntervals();
+    });
+
+    // Start the app
+    init();
+  </script>
 </body>
 </html>
