@@ -20,7 +20,7 @@
 
         <div id="relay-panel" class="mb-6 bg-white p-6 rounded-lg shadow-md hidden">
       <h2 class="text-xl font-bold mb-4 text-center text-green-700">Kontrol Relay</h2>
-      
+      
             <div class="text-center mb-4">
         <span class="text-lg font-semibold">Status: </span>
         <span id="relay-status" class="px-3 py-1 rounded-full text-white font-bold">UNKNOWN</span>
@@ -47,7 +47,7 @@
             </thead>
             <tbody id="relay-history" class="divide-y divide-gray-200">
                           </tbody>
-          </table>
+        </table>
         </div>
       </div>
     </div>
@@ -155,7 +155,7 @@
       </div>
     </div>
 
-        <div id="history-data-table-container" class="bg-white rounded-lg shadow-md overflow-hidden hidden">
+        <div id="history-data-table-container" class="bg-white rounded-lg shadow-md overflow-hidden hidden">
       <h2 class="text-xl font-bold p-4 bg-blue-600 text-white">Riwayat Data Konsumsi Energi</h2>
       <div class="overflow-x-auto">
         <table class="min-w-full">
@@ -182,7 +182,7 @@
         <div id="loading" class="hidden fixed top-4 right-4 bg-blue-600 text-white px-4 py-2 rounded-lg">
       Memproses...
     </div>
-    
+    
     <div id="notification" class="hidden fixed top-4 right-4 px-4 py-2 rounded-lg text-white font-semibold">
     </div>
   </div>
@@ -234,7 +234,7 @@
       const today = new Date();
       const weekAgo = new Date(today);
       weekAgo.setDate(today.getDate() - 7);
-      
+      
       elements.endDate.value = today.toISOString().split('T')[0];
       elements.startDate.value = weekAgo.toISOString().split('T')[0];
     }
@@ -246,7 +246,7 @@
         type === 'success' ? 'bg-green-600' : 'bg-red-600'
       }`;
       elements.notification.classList.remove('hidden');
-      
+      
       setTimeout(() => {
         elements.notification.classList.add('hidden');
       }, 3000);
@@ -263,6 +263,8 @@
       elements.loading.classList.add('hidden');
     }
 
+    // Debounce function is now removed for fetchLatestData for 1-second refresh
+    // but kept for fetchHistoryData to prevent rapid calls on filter changes
     function debounce(func, wait) {
       let timeout;
       return function executedFunction(...args) {
@@ -348,7 +350,7 @@
         <td class="py-2 px-4 font-mono text-sm">${data.mac_address || '-'}</td>
         <td class="py-2 px-4">
           ${data.relay_status ? `<span class="px-2 py-1 rounded text-xs font-bold ${
-            data.relay_status === 'ON' ? 'bg-green-100 text-green-800' : 
+            data.relay_status === 'ON' ? 'bg-green-100 text-green-800' : 
             data.relay_status === 'OFF' ? 'bg-red-100 text-red-800' : 'bg-gray-100 text-gray-800'
           }">${data.relay_status}</span>` : '-'}
         </td>
@@ -381,7 +383,7 @@
           <td class="py-2 px-4 font-mono text-sm">${row.mac_address || '-'}</td>
           <td class="py-2 px-4">
             ${row.relay_status ? `<span class="px-2 py-1 rounded text-xs font-bold ${
-              row.relay_status === 'ON' ? 'bg-green-100 text-green-800' : 
+              row.relay_status === 'ON' ? 'bg-green-100 text-green-800' : 
               row.relay_status === 'OFF' ? 'bg-red-100 text-red-800' : 'bg-gray-100 text-gray-800'
             }">${row.relay_status}</span>` : '-'}
           </td>
@@ -392,8 +394,8 @@
       elements.historyDataTableBody.appendChild(fragment);
     }
 
-    // Fetch latest data (primary display)
-    const fetchLatestData = debounce(async function() {
+    // Fetch latest data (primary display) - No debounce for 1-second refresh
+    async function fetchLatestData() {
       if (!state.selectedMac || state.isLoading) return;
 
       showLoading();
@@ -402,23 +404,23 @@
         state.currentLatestData = data;
         renderSingleDataRow(data, elements.latestDataTableBody);
         updateDataInfo();
-        showNotification('Data terbaru berhasil dimuat');
+        // showNotification('Data terbaru berhasil dimuat'); // Komen ini agar tidak terus muncul notifikasi
       } catch (error) {
-        showNotification('Gagal mengambil data terbaru', 'error');
+        // console.error('Gagal mengambil data terbaru:', error); // Log error but don't show constant notification
         elements.latestDataTableBody.innerHTML = '<tr><td colspan="10" class="text-center py-4 text-gray-500">Tidak ada data terbaru</td></tr>';
         state.currentLatestData = null;
         updateDataInfo();
       } finally {
         hideLoading();
       }
-    }, 500); // Debounce to prevent rapid calls
+    }
 
-    // Fetch historical data (for history view)
+    // Fetch historical data (for history view) - Debounced
     const fetchHistoryData = debounce(async function() {
       if (!state.selectedMac || state.isLoading) return;
 
       let url = '/api/data?mac=' + encodeURIComponent(state.selectedMac);
-      
+      
       if (elements.startDate.value && elements.endDate.value) {
         url += `&start_date=${elements.startDate.value}&end_date=${elements.endDate.value}`;
       }
@@ -438,7 +440,7 @@
       } finally {
         hideLoading();
       }
-    }, 300);
+    }, 300); // Debounce for history data fetch
 
     // Fetch statistics
     async function fetchStatistics() {
@@ -447,8 +449,9 @@
         return;
       }
 
+      // Always use the date inputs for statistics, regardless of current view
       let url = '/api/statistics?mac=' + encodeURIComponent(state.selectedMac);
-      
+      
       if (elements.startDate.value && elements.endDate.value) {
         url += `&start_date=${elements.startDate.value}&end_date=${elements.endDate.value}`;
       }
@@ -457,18 +460,19 @@
       try {
         const data = await apiCall(url);
         const stats = data.statistics;
-        
+        
         document.getElementById('stat-voltage').textContent = `${stats.average_voltage !== null ? stats.average_voltage.toFixed(2) + ' V' : '-'}`;
         document.getElementById('stat-current').textContent = `${stats.average_current !== null ? stats.average_current.toFixed(3) + ' A' : '-'}`;
         document.getElementById('stat-power').textContent = `${stats.average_power !== null ? stats.average_power.toFixed(2) + ' W' : '-'}`;
         document.getElementById('stat-total-power').textContent = `${stats.total_power !== null ? stats.total_power.toFixed(2) + ' W' : '-'}`;
         document.getElementById('stat-consumption').textContent = `${stats.energy_range.consumption_kwh !== null ? stats.energy_range.consumption_kwh.toFixed(4) + ' kWh' : '-'}`;
         document.getElementById('stat-records').textContent = stats.total_records;
-        
+        
         elements.statisticsPanel.classList.remove('hidden');
         showNotification('Statistik berhasil dimuat');
       } catch (error) {
         showNotification('Gagal mengambil statistik', 'error');
+        elements.statisticsPanel.classList.add('hidden'); // Hide panel if error
       } finally {
         hideLoading();
       }
@@ -481,32 +485,27 @@
         return;
       }
 
-      // Use history data if available, otherwise latest data
-      const dataToExport = state.isHistoryView ? state.currentHistoryData : (state.currentLatestData ? [state.currentLatestData] : []);
-
-      if (dataToExport.length === 0) {
-        showNotification('Tidak ada data untuk diekspor', 'error');
-        return;
-      }
-
       let url = '/api/export-csv?mac=' + encodeURIComponent(state.selectedMac);
-      
+      
+      // If currently in history view, include date filters for export
       if (state.isHistoryView && elements.startDate.value && elements.endDate.value) {
         url += `&start_date=${elements.startDate.value}&end_date=${elements.endDate.value}`;
       } else if (!state.isHistoryView) {
-        // If not history view, specifically request only latest for export logic if needed on backend
-        url += '&latest=true'; 
-      }
+        // If not history view, explicitly request only latest for export if your backend needs it
+        // This ensures the CSV export is consistent with the currently displayed data context
+        // If your /api/export-csv without dates defaults to all data, you might remove this else if block.
+        url += '&latest=true'; 
+      }
 
       showLoading();
-      
+      
       const link = document.createElement('a');
       link.href = url;
       link.download = `energy_data_${state.selectedMac.replace(/:/g, '')}_${new Date().toISOString().split('T')[0]}.csv`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-      
+      
       hideLoading();
       showNotification('File CSV berhasil diunduh');
     }
@@ -519,7 +518,7 @@
         const response = await apiCall('/api/relay-status?mac=' + encodeURIComponent(state.selectedMac));
         const status = response.status;
         elements.relayStatus.textContent = status;
-        
+        
         if (status === 'ON') {
           elements.relayStatus.className = 'px-3 py-1 rounded-full text-white font-bold bg-green-600';
         } else if (status === 'OFF') {
@@ -550,7 +549,7 @@
           const tr = document.createElement('tr');
           const timestamp = item.timestamp || `${item.tanggal} ${item.waktu}`;
           const statusClass = item.relay_status === 'ON' ? 'text-green-600 font-bold' : 'text-red-600 font-bold';
-          
+          
           tr.innerHTML = `
             <td class="py-1 px-3 text-xs">${timestamp}</td>
             <td class="py-1 px-3 ${statusClass}">${item.relay_status}</td>
@@ -579,7 +578,7 @@
             status: status
           }
         });
-        
+        
         showNotification(`Relay berhasil di${status === 'ON' ? 'nyalakan' : 'matikan'}`);
         await fetchRelayStatus();
         await fetchRelayHistory();
@@ -593,17 +592,17 @@
     // Setup auto refresh
     function setupAutoRefresh() {
       clearAllIntervals();
-      
+      
       if (state.selectedMac) {
-        // Auto refresh data terbaru setiap 30 detik (hanya jika di tampilan "data terbaru")
+        // Auto refresh data terbaru setiap 1 detik (hanya jika di tampilan "data terbaru")
         state.intervals.dataRefresh = setInterval(() => {
           if (state.selectedMac && !state.isHistoryView && !state.isLoading) {
             fetchLatestData();
             fetchRelayStatus();
           }
-        }, 30000);
+        }, 1000); // 1 detik
 
-        // Auto refresh riwayat setiap 15 detik
+        // Auto refresh riwayat setiap 15 detik (tetap)
         state.intervals.relayRefresh = setInterval(() => {
           if (state.selectedMac && !state.isLoading) {
             fetchRelayHistory();
@@ -612,23 +611,24 @@
       }
     }
 
-    // Toggle between latest data view and history data view
-    function toggleDataView(viewType) {
-        if (viewType === 'latest') {
-            state.isHistoryView = false;
-            elements.latestDataTableContainer.classList.remove('hidden');
-            elements.historyDataTableContainer.classList.add('hidden');
-            elements.filterDatePanel.classList.add('hidden');
-            fetchLatestData();
-        } else if (viewType === 'history') {
-            state.isHistoryView = true;
-            elements.latestDataTableContainer.classList.add('hidden');
-            elements.historyDataTableContainer.classList.remove('hidden');
-            elements.filterDatePanel.classList.remove('hidden');
-            fetchHistoryData();
-        }
-        updateDataInfo(); // Update info display based on current view
-    }
+    // Toggle between latest data view and history data view
+    function toggleDataView(viewType) {
+        if (viewType === 'latest') {
+            state.isHistoryView = false;
+            elements.latestDataTableContainer.classList.remove('hidden');
+            elements.historyDataTableContainer.classList.add('hidden');
+            elements.filterDatePanel.classList.add('hidden'); // Sembunyikan filter panel
+            fetchLatestData();
+        } else if (viewType === 'history') {
+            state.isHistoryView = true;
+            elements.latestDataTableContainer.classList.add('hidden');
+            elements.historyDataTableContainer.classList.remove('hidden');
+            elements.filterDatePanel.classList.remove('hidden'); // Tampilkan filter panel
+            fetchHistoryData();
+        }
+        updateDataInfo(); // Update info display based on current view
+        elements.statisticsPanel.classList.add('hidden'); // Sembunyikan panel statistik saat beralih tampilan
+    }
 
 
     // Event listeners setup
@@ -636,13 +636,13 @@
       // MAC select change
       elements.macSelect.addEventListener('change', async (e) => {
         state.selectedMac = e.target.value;
-        
+        
         clearAllIntervals();
-        
+        
         if (state.selectedMac) {
           elements.relayPanel.classList.remove('hidden');
           // Always start with latest data view when a MAC is selected
-            toggleDataView('latest'); 
+          toggleDataView('latest'); // Ini akan memicu fetchLatestData
           await Promise.all([
             fetchRelayStatus(),
             fetchRelayHistory()
@@ -651,9 +651,9 @@
         } else {
           elements.relayPanel.classList.add('hidden');
           elements.statisticsPanel.classList.add('hidden');
-            elements.filterDatePanel.classList.add('hidden'); // Hide filter panel
-            elements.latestDataTableContainer.classList.remove('hidden'); // Ensure latest is visible but empty
-            elements.historyDataTableContainer.classList.add('hidden'); // Ensure history is hidden
+          elements.filterDatePanel.classList.add('hidden'); // Hide filter panel
+          elements.latestDataTableContainer.classList.remove('hidden'); // Ensure latest is visible but empty
+          elements.historyDataTableContainer.classList.add('hidden'); // Ensure history is hidden
 
           elements.latestDataTableBody.innerHTML = ''; // Clear latest data table
           elements.historyDataTableBody.innerHTML = ''; // Clear history data table
@@ -673,12 +673,12 @@
           showNotification('Pilih tanggal mulai dan akhir', 'error');
           return;
         }
-        
+        
         if (new Date(elements.startDate.value) > new Date(elements.endDate.value)) {
           showNotification('Tanggal mulai tidak boleh lebih besar dari tanggal akhir', 'error');
           return;
         }
-        
+        
         fetchHistoryData();
       });
 
@@ -692,22 +692,22 @@
       // Action buttons
       elements.btnExportCsv.addEventListener('click', exportCSV);
       elements.btnStatistics.addEventListener('click', fetchStatistics);
-      
+      
       // Toggle views
       elements.btnViewHistory.addEventListener('click', () => {
         if (!state.selectedMac) {
           showNotification('Pilih perangkat terlebih dahulu', 'error');
           return;
         }
-        // Toggle text and view
-        if (state.isHistoryView) {
-            toggleDataView('latest');
-            elements.btnViewHistory.textContent = '📚 Lihat Riwayat Data';
-            elements.statisticsPanel.classList.add('hidden'); // Hide stats when going back to latest
-        } else {
-            toggleDataView('history');
-            elements.btnViewHistory.textContent = '🔄 Data Terbaru';
-        }
+        // Toggle text and view
+        if (state.isHistoryView) {
+            toggleDataView('latest');
+            elements.btnViewHistory.textContent = '📚 Lihat Riwayat Data';
+            elements.statisticsPanel.classList.add('hidden'); // Sembunyikan stats saat kembali ke latest
+        } else {
+            toggleDataView('history');
+            elements.btnViewHistory.textContent = '🔄 Data Terbaru';
+        }
       });
 
 
@@ -721,7 +721,7 @@
             if (state.selectedMac) {
               await fetchRelayHistory();
               // If currently on history view, refresh it. If on latest, no energy data change needed.
-              if (state.isHistoryView) fetchHistoryData();
+              if (state.isHistoryView) fetchHistoryData();
             }
           } catch (error) {
             showNotification('Gagal reset data relay', 'error');
@@ -737,7 +737,11 @@
       setDefaultDates();
       updateDataInfo(); // Initial info state (will be "latest data")
       setupEventListeners();
-      
+      
+      // Hide filter panel and statistics panel initially
+      elements.filterDatePanel.classList.add('hidden');
+      elements.statisticsPanel.classList.add('hidden');
+
       try {
         await fetchMacList();
       } catch (error) {
