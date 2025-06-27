@@ -159,12 +159,12 @@ app.get('/api/data', (req, res) => {
         sql += ' WHERE ' + conditions.join(' AND ');
     }
 
-    // Selalu urutkan berdasarkan tanggal dan waktu
-    sql += ' ORDER BY tanggal DESC, waktu DESC';
-    // Jika tidak ada filter tanggal/jam spesifik, batasi ke 20 record terakhir.
-    // Jika ada filter tanggal/jam, tampilkan semua dalam rentang itu.
-    if (!startDate && !endDate && !startHour && !endHour) {
-        sql += ' LIMIT 20';
+    sql += ' ORDER BY id DESC'; // Selalu urutkan dari yang terbaru
+
+    // MODIFIKASI INI: Jika tidak ada filter tanggal/jam, limit hanya 1 record
+    // Jika ada filter, tampilkan semua dalam rentang itu.
+    if (!startDate && !endDate && (!startHour || startHour === '00:00') && (!endHour || endHour === '23:59')) {
+        sql += ' LIMIT 1'; // Ambil hanya 1 data terbaru jika tidak ada filter spesifik
     }
 
     db.all(sql, params, (err, rows) => {
@@ -521,7 +521,7 @@ app.get('/api/reset-relay-data', (req, res) => {
         if (err) {
             console.error('Error reset data relay:', err.message);
             return res.status(500).json({ error: 'Error saat reset data relay' });
-        }
+        });
         res.json({ success: true, message: 'Data relay berhasil direset' });
     });
 });
