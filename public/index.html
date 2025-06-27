@@ -151,7 +151,7 @@
             </button>
             <button id="btn-hide-statistics" class="px-6 py-3 bg-gray-600 text-white font-semibold rounded-xl shadow-md hover:bg-gray-700 transition duration-300 ease-in-out transform hover:scale-105 active:scale-95 hidden flex items-center gap-2">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
-                Sembunyikan Statistik
+                Kembali ke Data Real-time
             </button>
             <button onclick="if(confirm('Anda yakin ingin menghapus SEMUA data konsumsi energi secara permanen dari database? Aksi ini tidak dapat dibatalkan!')) window.location.href='/api/reset-data'" class="px-6 py-3 bg-red-600 text-white font-semibold rounded-xl shadow-md hover:bg-red-700 transition duration-300 ease-in-out transform hover:scale-105 active:scale-95 flex items-center gap-2">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
@@ -336,10 +336,13 @@
                 const startHourVal = elements.startHour.value;
                 const endHourVal = elements.endHour.value;
 
-                if (startDateVal || endDateVal || startHourVal || endHourVal) {
+                // Cek apakah ada filter yang aktif atau tidak
+                const filterActive = startDateVal || endDateVal || (startHourVal !== "00:00") || (endHourVal !== "23:59");
+
+                if (filterActive) {
                     elements.dataInfo.textContent = `Data difilter: ${startDateVal || 'Semua Tanggal'} ${startHourVal || '00:00'} - ${endDateVal || 'Semua Tanggal'} ${endHourVal || '23:59'}`;
                 } else {
-                    elements.dataInfo.textContent = 'Menampilkan 20 data terbaru (tanpa filter tanggal/jam)';
+                    elements.dataInfo.textContent = 'Menampilkan data terbaru (real-time, auto-refresh 1 detik)';
                 }
                 elements.totalRecordsDisplay.textContent = `Total Record: ${state.currentDataCount}`;
             }
@@ -387,7 +390,7 @@
 
         // Render data rows for the main table
         function renderDataRows(data) {
-            elements.dataTableBody.innerHTML = '';
+            elements.dataTableBody.innerHTML = ''; // Clear existing rows
             if (!data || data.length === 0) {
                 elements.dataTableBody.innerHTML = '<tr><td colspan="10" class="text-center py-4 text-gray-500">Tidak ada data untuk rentang ini.</td></tr>';
                 state.currentDataCount = 0;
@@ -422,7 +425,7 @@
         }
 
         // Fetch data (for the main table, now supports filters)
-        const fetchData = debounce(async function() { // Renamed from fetchLatestData
+        async function fetchData(isFiltered = false) { // Added isFiltered flag
             if (!state.selectedMac || state.isLoading || state.isStatisticsView) return;
 
             showLoading();
@@ -433,10 +436,14 @@
             const startHourVal = elements.startHour.value;
             const endHourVal = elements.endHour.value;
 
-            if (startDateVal) url += `&start_date=${startDateVal}`;
-            if (endDateVal) url += `&end_date=${endDateVal}`;
-            if (startHourVal) url += `&start_hour=${startHourVal}`;
-            if (endHourVal) url += `&end_hour=${endHourVal}`;
+            // Hanya tambahkan filter jika 'isFiltered' true atau jika ada nilai filter yang non-default
+            if (isFiltered || startDateVal || endDateVal || (startHourVal !== "00:00") || (endHourVal !== "23:59")) {
+                if (startDateVal) url += `&start_date=${startDateVal}`;
+                if (endDateVal) url += `&end_date=${endDateVal}`;
+                if (startHourVal) url += `&start_hour=${startHourVal}`;
+                if (endHourVal) url += `&end_hour=${endHourVal}`;
+            }
+            // Penting: Jika tidak ada filter yang diset, endpoint server akan otomatis LIMIT 1 untuk real-time
 
             try {
                 const data = await apiCall(url);
@@ -449,7 +456,7 @@
                 hideLoading();
                 updateDataInfo();
             }
-        }, 500); // Debounce to prevent rapid calls
+        }
 
         // Fetch statistics (logic unchanged from previous version)
         async function fetchStatistics() {
@@ -630,13 +637,20 @@
             clearAllIntervals();
             
             if (state.selectedMac) {
-                // Refresh data dan status relay setiap 15 detik (jika tidak dalam mode statistik)
+                // Refresh data (hanya 1 record terbaru) setiap 1 detik
                 state.intervals.dataRefresh = setInterval(() => {
-                    if (state.selectedMac && !state.isLoading && !state.isStatisticsView) {
-                        fetchData(); // Menggunakan fetchData() yang baru
-                        fetchRelayStatus();
+                    // Hanya refresh jika tidak dalam mode statistik dan tidak ada filter aktif
+                    const startDateVal = elements.startDate.value;
+                    const endDateVal = elements.endDate.value;
+                    const startHourVal = elements.startHour.value;
+                    const endHourVal = elements.endHour.value;
+                    const filterActive = startDateVal || endDateVal || (startHourVal !== "00:00") || (endHourVal !== "23:59");
+                    
+                    if (!state.isLoading && !state.isStatisticsView && !filterActive) {
+                        fetchData(false); // Panggil fetchData tanpa filter
+                        fetchRelayStatus(); // Update status relay juga
                     }
-                }, 15000); 
+                }, 1000); // Setiap 1 detik
 
                 // Refresh riwayat relay setiap 30 detik
                 state.intervals.relayRefresh = setInterval(() => {
@@ -657,8 +671,8 @@
                 
                 elements.dataTableContainer.classList.add('hidden'); // Hide data table
                 
-                fetchStatistics(); 
-                if (state.intervals.dataRefresh) clearInterval(state.intervals.dataRefresh); 
+                fetchStatistics(); // Fetch statistics with current filters
+                if (state.intervals.dataRefresh) clearInterval(state.intervals.dataRefresh); // Stop real-time data refresh
             } else {
                 elements.statisticsPanel.classList.add('hidden');
                 elements.btnShowStatistics.classList.remove('hidden');
@@ -666,8 +680,15 @@
                 
                 elements.dataTableContainer.classList.remove('hidden'); // Show data table
 
-                fetchData(); // Refresh data table immediately
-                setupAutoRefresh(); 
+                // Cek apakah ada filter yang aktif untuk menentukan fetch data
+                const startDateVal = elements.startDate.value;
+                const endDateVal = elements.endDate.value;
+                const startHourVal = elements.startHour.value;
+                const endHourVal = elements.endHour.value;
+                const filterActive = startDateVal || endDateVal || (startHourVal !== "00:00") || (endHourVal !== "23:59");
+
+                fetchData(filterActive); // Refresh data table immediately based on filter status
+                setupAutoRefresh(); // Restart real-time data refresh if no filters
             }
         }
 
@@ -680,14 +701,15 @@
                 if (state.selectedMac) {
                     elements.relayPanel.classList.remove('hidden');
                     elements.statisticsFilterPanel.classList.remove('hidden'); // Always show filter panel
-                    toggleStatisticsView(false); // Default to data table view
+                    toggleStatisticsView(false); // Default to data table view (real-time)
 
+                    // Fetch initial data, status, and history
                     await Promise.all([
-                        fetchData(), // Fetch initial data for the table
+                        fetchData(false), // Fetch initial real-time data (no filter)
                         fetchRelayStatus(),
                         fetchRelayHistory()
                     ]);
-                    setupAutoRefresh(); 
+                    setupAutoRefresh(); // Start auto-refresh
                 } else {
                     elements.relayPanel.classList.add('hidden');
                     elements.statisticsPanel.classList.add('hidden');
@@ -707,7 +729,7 @@
             elements.btnOff.addEventListener('click', () => controlRelay('OFF'));
 
             // Filter button for both data table and statistics
-            elements.btnApplyFilter.addEventListener('click', () => { // Renamed from btnApplyStatisticsFilter
+            elements.btnApplyFilter.addEventListener('click', () => { 
                 if (!state.selectedMac) {
                     showNotification('Pilih perangkat terlebih dahulu', 'error');
                     return;
@@ -720,23 +742,27 @@
                         return;
                     }
                 }
-                // Call the appropriate fetch function based on current view
+
+                // Stop auto-refresh data saat filter diterapkan
+                if (state.intervals.dataRefresh) clearInterval(state.intervals.dataRefresh);
+
                 if (state.isStatisticsView) {
-                    fetchStatistics();
+                    fetchStatistics(); // Apply filter to statistics
                 } else {
-                    fetchData(); // Apply filter to data table
+                    fetchData(true); // Apply filter to data table (pass true to force filter)
                 }
             });
 
-            elements.btnClearFilter.addEventListener('click', () => { // Renamed from btnClearStatisticsFilter
+            elements.btnClearFilter.addEventListener('click', () => { 
                 setDefaultDatesForStatistics(); // Reset filter inputs
                 if (state.selectedMac) { 
                     if (state.isStatisticsView) {
                         fetchStatistics(); // Re-fetch stats with default filters
                     } else {
-                        fetchData(); // Re-fetch data with no filters (will show 20 latest)
+                        fetchData(false); // Re-fetch data for real-time (no forced filter)
                     }
                 }
+                setupAutoRefresh(); // Restart auto-refresh
             });
 
             elements.btnExportCsv.addEventListener('click', exportCSV);
