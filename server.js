@@ -1,4 +1,4 @@
-// server.js (Perbaikan untuk Statistik dengan Filter Jam)
+// server.js (Bagian endpoint /api/data yang diperbaiki)
 
 const express = require('express');
 const sqlite3 = require('sqlite3').verbose();
@@ -112,11 +112,15 @@ function formatTimeForQuery(timeString) {
     return timeString;
 }
 
-// Endpoint ambil data berdasarkan mac_address dan filter tanggal
+// ==========================================================
+// Endpoint ambil data berdasarkan mac_address dan filter tanggal & JAM
+// ==========================================================
 app.get('/api/data', (req, res) => {
     const mac = req.query.mac;
     const startDate = req.query.start_date;
     const endDate = req.query.end_date;
+    const startHour = req.query.start_hour; // Parameter jam mulai (HH:MM)
+    const endHour = req.query.end_hour;     // Parameter jam akhir (HH:MM)
 
     let sql = 'SELECT * FROM konsumsi_energi';
     const params = [];
@@ -125,6 +129,9 @@ app.get('/api/data', (req, res) => {
     if (mac) {
         conditions.push('mac_address = ?');
         params.push(mac);
+    } else {
+        // Jika tidak ada MAC, kembalikan kosong atau error
+        return res.status(400).json({ error: 'MAC address harus diisi' });
     }
 
     if (startDate && endDate) {
@@ -137,16 +144,27 @@ app.get('/api/data', (req, res) => {
         }
     }
 
+    // Menambahkan filter jam
+    if (startHour && endHour) {
+        const formattedStartHour = formatTimeForQuery(startHour + ':00'); // Pastikan format HH:MM:SS untuk perbandingan
+        const formattedEndHour = formatTimeForQuery(endHour + ':00');     // Pastikan format HH:MM:SS untuk perbandingan
+        
+        if (formattedStartHour && formattedEndHour) {
+            conditions.push('waktu BETWEEN ? AND ?');
+            params.push(formattedStartHour, formattedEndHour);
+        }
+    }
+
     if (conditions.length > 0) {
         sql += ' WHERE ' + conditions.join(' AND ');
     }
 
-    // Jika ada filter tanggal, ambil semua data dalam range tersebut
-    // Jika tidak ada filter, batasi ke 20 record terakhir
-    if (startDate && endDate) {
-        sql += ' ORDER BY tanggal DESC, waktu DESC';
-    } else {
-        sql += ' ORDER BY id DESC LIMIT 20';
+    // Selalu urutkan berdasarkan tanggal dan waktu
+    sql += ' ORDER BY tanggal DESC, waktu DESC';
+    // Jika tidak ada filter tanggal/jam spesifik, batasi ke 20 record terakhir.
+    // Jika ada filter tanggal/jam, tampilkan semua dalam rentang itu.
+    if (!startDate && !endDate && !startHour && !endHour) {
+        sql += ' LIMIT 20';
     }
 
     db.all(sql, params, (err, rows) => {
@@ -158,14 +176,18 @@ app.get('/api/data', (req, res) => {
         }
     });
 });
+// ==========================================================
+// Batas akhir perbaikan endpoint /api/data
+// ==========================================================
+
 
 // Endpoint untuk export CSV
 app.get('/api/export-csv', (req, res) => {
     const mac = req.query.mac;
     const startDate = req.query.start_date;
     const endDate = req.query.end_date;
-    const startHour = req.query.start_hour; // New: Tambahkan parameter jam
-    const endHour = req.query.end_hour;     // New: Tambahkan parameter jam
+    const startHour = req.query.start_hour; 
+    const endHour = req.query.end_hour;     
 
     if (!mac) {
         return res.status(400).json({ error: 'MAC address harus diisi' });
@@ -186,10 +208,9 @@ app.get('/api/export-csv', (req, res) => {
         }
     }
 
-    // New: Tambahkan filter jam
     if (startHour && endHour) {
-        const formattedStartHour = formatTimeForQuery(startHour + ':00'); // Ensure HH:MM:SS format for comparisons
-        const formattedEndHour = formatTimeForQuery(endHour + ':00');     // Ensure HH:MM:SS format for comparisons
+        const formattedStartHour = formatTimeForQuery(startHour + ':00'); 
+        const formattedEndHour = formatTimeForQuery(endHour + ':00');     
         
         if (formattedStartHour && formattedEndHour) {
             conditions.push('waktu BETWEEN ? AND ?');
@@ -199,7 +220,7 @@ app.get('/api/export-csv', (req, res) => {
 
 
     sql += ' WHERE ' + conditions.join(' AND ');
-    sql += ' ORDER BY tanggal ASC, waktu ASC'; // Selalu urutkan berdasarkan tanggal dan waktu untuk CSV
+    sql += ' ORDER BY tanggal ASC, waktu ASC'; 
 
     db.all(sql, params, (err, rows) => {
         if (err) {
@@ -242,7 +263,6 @@ app.get('/api/export-csv', (req, res) => {
                     row.mqtt_topic || ''
                 ];
                 
-                // Escape commas dan quotes dalam data
                 const escapedRow = csvRow.map(field => {
                     const stringField = String(field);
                     if (stringField.includes(',') || stringField.includes('"') || stringField.includes('\n')) {
@@ -258,16 +278,13 @@ app.get('/api/export-csv', (req, res) => {
             const cleanMac = mac.replace(/:/g, '').replace(/[^a-zA-Z0-9]/g, '');
             const filename = `energy_data_${cleanMac}_${new Date().toISOString().split('T')[0]}.csv`;
             
-            // PERBAIKAN: Set headers yang benar untuk download
             res.setHeader('Content-Type', 'text/csv; charset=utf-8');
             res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
             res.setHeader('Cache-Control', 'no-cache');
             res.setHeader('Pragma', 'no-cache');
             
-            // Tambahkan BOM untuk Excel compatibility
             const csvWithBOM = '\ufeff' + csvContent;
             
-            // Kirim response
             res.status(200).send(csvWithBOM);
             
         } catch (error) {
@@ -421,10 +438,9 @@ app.get('/api/statistics', (req, res) => {
         }
     }
 
-    // New: Menambahkan filter jam
     if (startHour && endHour) {
-        const formattedStartHour = formatTimeForQuery(startHour + ':00'); // Pastikan format HH:MM:SS untuk perbandingan
-        const formattedEndHour = formatTimeForQuery(endHour + ':00');     // Pastikan format HH:MM:SS untuk perbandingan
+        const formattedStartHour = formatTimeForQuery(startHour + ':00'); 
+        const formattedEndHour = formatTimeForQuery(endHour + ':00');     
         
         if (formattedStartHour && formattedEndHour) {
             conditions.push('waktu BETWEEN ? AND ?');
@@ -444,17 +460,15 @@ app.get('/api/statistics', (req, res) => {
         }
 
         let consumption_kwh = 0;
-        if (row.first_record_datetime && row.last_record_datetime && row.avg_power !== null) {
+        if (row.first_record_datetime && row.last_record_datetime && row.avg_power !== null && row.total_records > 1) {
             const start = new Date(row.first_record_datetime);
             const end = new Date(row.last_record_datetime);
-            const durationHours = (end - start) / (1000 * 60 * 60); // Durasi dalam jam
+            const durationMillis = end - start;
+            const durationHours = durationMillis / (1000 * 60 * 60);
             
-            // Perhitungan kWh: Daya rata-rata (Watt) * Durasi (Jam) / 1000
-            consumption_kwh = (row.avg_power * durationHours) / 1000;
-        } else if (row.min_kwh !== null && row.max_kwh !== null) {
-            // Jika rentang waktu tidak bisa dihitung (misal hanya 1 record), gunakan selisih kWh counter
-            // Ini asumsi bahwa kwh di database adalah counter yang terus bertambah
-            consumption_kwh = row.max_kwh - row.min_kwh;
+            consumption_kwh = (row.avg_power * durationHours) / 1000; // kWh = (Watt * Jam) / 1000
+        } else if (row.min_kwh !== null && row.max_kwh !== null && row.total_records > 0) {
+            consumption_kwh = row.max_kwh - row.min_kwh; // Asumsi kwh adalah counter kumulatif
         }
 
         res.json({
@@ -465,13 +479,13 @@ app.get('/api/statistics', (req, res) => {
                 average_voltage: parseFloat((row.avg_voltage || 0).toFixed(2)),
                 average_current: parseFloat((row.avg_current || 0).toFixed(2)),
                 average_power: parseFloat((row.avg_power || 0).toFixed(2)),
-                total_power_sum: parseFloat((row.total_power || 0).toFixed(2)), // SUM(daya)
+                total_power_sum: parseFloat((row.total_power || 0).toFixed(2)),
                 energy_range: {
                     first_record_datetime: row.first_record_datetime,
                     last_record_datetime: row.last_record_datetime,
-                    min_kwh_counter: parseFloat((row.min_kwh || 0).toFixed(4)), // KWh counter terkecil
-                    max_kwh_counter: parseFloat((row.max_kwh || 0).toFixed(4)), // KWh counter terbesar
-                    calculated_consumption_kwh: parseFloat(consumption_kwh.toFixed(4)) // KWh hasil perhitungan
+                    min_kwh_counter: parseFloat((row.min_kwh || 0).toFixed(4)),
+                    max_kwh_counter: parseFloat((row.max_kwh || 0).toFixed(4)),
+                    calculated_consumption_kwh: parseFloat(consumption_kwh.toFixed(4))
                 }
             }
         });
@@ -513,6 +527,8 @@ app.get('/api/reset-relay-data', (req, res) => {
 });
 
 // Endpoint untuk mendapatkan data terbaru (untuk real-time monitoring)
+// Endpoint ini tidak lagi digunakan secara langsung untuk menampilkan tabel data.
+// Fungsi fetchLatestData di frontend sekarang memanggil /api/data dengan limit 1.
 app.get('/api/latest-data', (req, res) => {
     const mac = req.query.mac;
     
@@ -534,6 +550,7 @@ app.get('/api/latest-data', (req, res) => {
     });
 });
 
+
 // Serve static files di folder public
 app.use(express.static(path.join(__dirname, 'public')));
 
@@ -551,13 +568,13 @@ app.use((err, req, res, next) => {
 app.listen(port, '0.0.0.0', () => {
     console.log(`Server berjalan di http://localhost:${port}`);
     console.log('Endpoints yang tersedia:');
-    console.log('- GET /api/data - Ambil data konsumsi energi dengan filter');
-    console.log('- GET /api/export-csv - Export data ke CSV');
+    console.log('- GET /api/data - Ambil data konsumsi energi dengan filter tanggal & jam');
+    console.log('- GET /api/export-csv - Export data ke CSV (dengan filter)');
     console.log('- GET /api/mac-list - Daftar MAC address');
     console.log('- GET /api/relay-status - Status relay perangkat');
     console.log('- GET /api/relay-history - Riwayat kontrol relay');
     console.log('- GET /api/statistics - Statistik konsumsi energi (dengan filter tanggal & jam)');
-    console.log('- GET /api/latest-data - Data terbaru perangkat');
+    console.log('- GET /api/latest-data - Data terbaru perangkat (ambil 1 record terakhir)'); // Ini hanya untuk ambil 1 record
     console.log('- POST /api/relay-control - Kontrol relay via MQTT');
     console.log('- GET /api/reset-data - Reset semua data');
     console.log('- GET /api/reset-relay-data - Reset data relay');
