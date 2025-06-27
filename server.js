@@ -1,4 +1,5 @@
-// server.js
+kode server js yang lama
+//server.js
 
 const express = require('express');
 const sqlite3 = require('sqlite3').verbose();
@@ -94,47 +95,20 @@ function addRelayColumns() {
   });
 }
 
-// Fungsi helper untuk format tanggal (YYYY-MM-DD)
+// Fungsi helper untuk format tanggal
 function formatDateForQuery(dateString) {
+  // Validasi format tanggal
   if (!dateString || !/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
     return null;
   }
   return dateString;
 }
 
-/**
- * Fungsi helper untuk menggabungkan tanggal dan waktu menjadi string YYYY-MM-DDTHH:MM:SS.
- * Ini memastikan konsistensi format untuk perbandingan SQL, terutama detik.
- * @param {string} dateString - Tanggal dalam format YYYY-MM-DD.
- * @param {string} timeString - Waktu dalam format HH:MM (opsional).
- * @param {boolean} isEnd - Menentukan apakah ini untuk batas akhir (akan menambahkan :59 detik).
- * @returns {string|null} String datetime yang diformat atau null.
- */
-function combineDateTime(dateString, timeString, isEnd = false) {
-    if (!dateString) return null;
-
-    let timePart = timeString || (isEnd ? '23:59' : '00:00'); // Default jam
-    
-    // Pastikan timePart selalu memiliki detik untuk perbandingan yang tepat
-    // Jika format input HH:MM, tambahkan detik.
-    if (timePart.length === 5 && !timePart.includes(':')) { // Jika hanya HH:MM
-        timePart += isEnd ? ':59' : ':00'; 
-    } else if (timePart.length === 5 && timePart.includes(':')) { // Jika HH:MM
-      timePart += isEnd ? ':59' : ':00';
-    }
-
-    // Untuk memastikan format output YYYY-MM-DDTHH:MM:SS
-    return `${dateString}T${timePart}`;
-}
-
-
-// Endpoint ambil data berdasarkan mac_address dan filter tanggal/jam
+// Endpoint ambil data berdasarkan mac_address dan filter tanggal
 app.get('/api/data', (req, res) => {
   const mac = req.query.mac;
   const startDate = req.query.start_date;
   const endDate = req.query.end_date;
-  const startTime = req.query.start_time; 
-  const endTime = req.query.end_time;     
 
   let sql = 'SELECT * FROM konsumsi_energi';
   const params = [];
@@ -150,15 +124,8 @@ app.get('/api/data', (req, res) => {
     const formattedEndDate = formatDateForQuery(endDate);
     
     if (formattedStartDate && formattedEndDate) {
-        const startDateTime = combineDateTime(formattedStartDate, startTime, false); 
-        const endDateTime = combineDateTime(formattedEndDate, endTime, true); 
-
-        // Penting: SQLITE akan membandingkan string YYYY-MM-DDTHH:MM:SS secara leksikografis
-        // Pastikan kolom 'waktu' di database juga idealnya menyimpan dalam format HH:MM:SS
-        // atau kita menyesuaikan format waktu di database saat query.
-        // Untuk amannya, kita asumsikan 'waktu' sudah HH:MM:SS atau akan dikonversi.
-        conditions.push(`(tanggal || 'T' || waktu) BETWEEN ? AND ?`);
-        params.push(startDateTime, endDateTime);
+      conditions.push('tanggal BETWEEN ? AND ?');
+      params.push(formattedStartDate, formattedEndDate);
     }
   }
 
@@ -166,9 +133,9 @@ app.get('/api/data', (req, res) => {
     sql += ' WHERE ' + conditions.join(' AND ');
   }
 
-  // Jika ada filter tanggal/jam, ambil semua data dalam range tersebut
+  // Jika ada filter tanggal, ambil semua data dalam range tersebut
   // Jika tidak ada filter, batasi ke 20 record terakhir
-  if (startDate && endDate || startTime || endTime) { 
+  if (startDate && endDate) {
     sql += ' ORDER BY tanggal DESC, waktu DESC';
   } else {
     sql += ' ORDER BY id DESC LIMIT 20';
@@ -185,12 +152,11 @@ app.get('/api/data', (req, res) => {
 });
 
 // Endpoint untuk export CSV
+// Endpoint untuk export CSV - Perbaikan di server.js
 app.get('/api/export-csv', (req, res) => {
   const mac = req.query.mac;
   const startDate = req.query.start_date;
   const endDate = req.query.end_date;
-  const startTime = req.query.start_time; 
-  const endTime = req.query.end_time;     
 
   if (!mac) {
     return res.status(400).json({ error: 'MAC address harus diisi' });
@@ -206,11 +172,8 @@ app.get('/api/export-csv', (req, res) => {
     const formattedEndDate = formatDateForQuery(endDate);
     
     if (formattedStartDate && formattedEndDate) {
-        const startDateTime = combineDateTime(formattedStartDate, startTime, false); 
-        const endDateTime = combineDateTime(formattedEndDate, endTime, true); 
-        
-        conditions.push(`(tanggal || 'T' || waktu) BETWEEN ? AND ?`);
-        params.push(startDateTime, endDateTime);
+      conditions.push('tanggal BETWEEN ? AND ?');
+      params.push(formattedStartDate, formattedEndDate);
     }
   }
 
@@ -228,6 +191,7 @@ app.get('/api/export-csv', (req, res) => {
     }
 
     try {
+      // Buat CSV content
       const headers = [
         'ID',
         'Tanggal',
@@ -257,6 +221,7 @@ app.get('/api/export-csv', (req, res) => {
           row.mqtt_topic || ''
         ];
         
+        // Escape commas dan quotes dalam data
         const escapedRow = csvRow.map(field => {
           const stringField = String(field);
           if (stringField.includes(',') || stringField.includes('"') || stringField.includes('\n')) {
@@ -268,16 +233,20 @@ app.get('/api/export-csv', (req, res) => {
         csvContent += escapedRow.join(',') + '\n';
       });
 
+      // Set headers untuk download file
       const cleanMac = mac.replace(/:/g, '').replace(/[^a-zA-Z0-9]/g, '');
       const filename = `energy_data_${cleanMac}_${new Date().toISOString().split('T')[0]}.csv`;
       
+      // PERBAIKAN: Set headers yang benar untuk download
       res.setHeader('Content-Type', 'text/csv; charset=utf-8');
       res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
       res.setHeader('Cache-Control', 'no-cache');
       res.setHeader('Pragma', 'no-cache');
       
+      // Tambahkan BOM untuk Excel compatibility
       const csvWithBOM = '\ufeff' + csvContent;
       
+      // Kirim response
       res.status(200).send(csvWithBOM);
       
     } catch (error) {
@@ -312,9 +281,11 @@ app.post('/api/relay-control', (req, res) => {
   }
 
   try {
+    // Format topik berdasarkan MAC address
     const cleanMac = mac_address.replace(/:/g, '').toUpperCase();
     const topic = `tasmota_${cleanMac}/cmnd/POWER`;
     
+    // Hanya kirim perintah ke MQTT, tidak insert ke database
     mqttClient.publish(topic, status, (err) => {
       if (err) {
         console.error('Error publish MQTT:', err);
@@ -355,6 +326,7 @@ app.get('/api/relay-history', (req, res) => {
       console.error('Error mengambil riwayat relay:', err.message);
       res.status(500).json({ error: 'Error mengambil riwayat relay' });
     } else {
+      // Format timestamp untuk frontend
       const formattedRows = (rows || []).map(row => ({
         ...row,
         timestamp: `${row.tanggal} ${row.waktu}`
@@ -372,6 +344,7 @@ app.get('/api/relay-status', (req, res) => {
     return res.status(400).json({ error: 'MAC address harus diisi' });
   }
 
+  // Ambil status relay dari data terakhir (baik dari record energi maupun relay)
   const sql = `SELECT relay_status FROM konsumsi_energi 
                WHERE mac_address = ? AND relay_status IS NOT NULL AND relay_status != ''
                ORDER BY id DESC LIMIT 1`;
@@ -389,28 +362,26 @@ app.get('/api/relay-status', (req, res) => {
   });
 });
 
-// Endpoint untuk mendapatkan statistik data berdasarkan filter tanggal dan jam
+// Endpoint untuk mendapatkan statistik data berdasarkan filter tanggal
 app.get('/api/statistics', (req, res) => {
   const mac = req.query.mac;
   const startDate = req.query.start_date;
   const endDate = req.query.end_date;
-  const startTime = req.query.start_time; // Parameter jam mulai (HH:MM)
-  const endTime = req.query.end_time;     // Parameter jam akhir (HH:MM)
 
   if (!mac) {
     return res.status(400).json({ error: 'MAC address harus diisi' });
   }
 
   let sql = `SELECT 
-                COUNT(*) as total_records,
-                AVG(tegangan) as avg_voltage,
-                AVG(arus) as avg_current,
-                AVG(daya) as avg_power,
-                SUM(daya) as total_power,
-                MAX(kwh) as max_kwh,
-                MIN(kwh) as min_kwh
-              FROM konsumsi_energi 
-              WHERE mac_address = ?`;
+               COUNT(*) as total_records,
+               AVG(tegangan) as avg_voltage,
+               AVG(arus) as avg_current,
+               AVG(daya) as avg_power,
+               SUM(daya) as total_power,
+               MAX(kwh) as max_kwh,
+               MIN(kwh) as min_kwh
+             FROM konsumsi_energi 
+             WHERE mac_address = ?`;
   
   const params = [mac];
 
@@ -419,13 +390,8 @@ app.get('/api/statistics', (req, res) => {
     const formattedEndDate = formatDateForQuery(endDate);
     
     if (formattedStartDate && formattedEndDate) {
-        const startDateTime = combineDateTime(formattedStartDate, startTime, false); 
-        const endDateTime = combineDateTime(formattedEndDate, endTime, true); 
-        
-        // Gabungkan kolom tanggal dan waktu dari DB untuk perbandingan yang akurat
-        // Pastikan 'waktu' di DB memiliki format HH:MM:SS (atau setidaknya HH:MM jika Anda sesuaikan combineDateTime)
-        sql += ' AND (tanggal || "T" || waktu) BETWEEN ? AND ?';
-        params.push(startDateTime, endDateTime);
+      sql += ' AND tanggal BETWEEN ? AND ?';
+      params.push(formattedStartDate, formattedEndDate);
     }
   }
 
@@ -434,17 +400,9 @@ app.get('/api/statistics', (req, res) => {
       console.error('Error mengambil statistik:', err.message);
       res.status(500).json({ error: 'Error mengambil statistik' });
     } else {
-      // Perhitungan consumption_kwh mungkin memerlukan penanganan khusus
-      // jika min_kwh dan max_kwh diambil dari rentang waktu yang tidak kontinyu.
-      // Untuk KWh yang akurat, idealnya KWh yang masuk ke DB adalah KWh total dari perangkat.
-      // Jika Anda ingin konsumsi dalam rentang, Anda perlu menghitung selisih KWh pada awal dan akhir periode.
-      // Saat ini, `(row.max_kwh || 0) - (row.min_kwh || 0)` akan mengambil KWh maksimum dan minimum
-      // dari *seluruh data yang difilter*, yang mungkin bukan "konsumsi aktual"
-      // selama periode tersebut jika KWh adalah pembacaan total meteran.
-      // Ini adalah batasan umum data KWh akumulatif.
       res.json({
         mac_address: mac,
-        period: startDate && endDate ? `${startDate} ${startTime || '00:00'} to ${endDate} ${endTime || '23:59'}` : 'All time',
+        period: startDate && endDate ? `${startDate} to ${endDate}` : 'All time',
         statistics: {
           total_records: row.total_records || 0,
           average_voltage: parseFloat((row.avg_voltage || 0).toFixed(2)),
@@ -454,8 +412,6 @@ app.get('/api/statistics', (req, res) => {
           energy_range: {
             min_kwh: parseFloat((row.min_kwh || 0).toFixed(4)),
             max_kwh: parseFloat((row.max_kwh || 0).toFixed(4)),
-            // Perhatikan: ini menghitung selisih antara KWh min dan max dalam rentang yang difilter.
-            // Ini akan akurat jika KWh adalah nilai total akumulatif yang monotonik.
             consumption_kwh: parseFloat(((row.max_kwh || 0) - (row.min_kwh || 0)).toFixed(4))
           }
         }
