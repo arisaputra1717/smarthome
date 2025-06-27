@@ -6,6 +6,58 @@
   <title>Smart Home Control Panel</title>
   <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    /* Custom styles for better scrollbar in history */
+    #relay-history::-webkit-scrollbar {
+      width: 8px;
+    }
+    #relay-history::-webkit-scrollbar-track {
+      background: #f1f1f1;
+      border-radius: 10px;
+    }
+    #relay-history::-webkit-scrollbar-thumb {
+      background: #888;
+      border-radius: 10px;
+    }
+    #relay-history::-webkit-scrollbar-thumb:hover {
+      background: #555;
+    }
+
+    /* Style for table body scrollbar */
+    .overflow-x-auto::-webkit-scrollbar {
+      height: 8px;
+    }
+    .overflow-x-auto::-webkit-scrollbar-track {
+      background: #f1f1f1;
+    }
+    .overflow-x-auto::-webkit-scrollbar-thumb {
+      background: #888;
+      border-radius: 10px;
+    }
+    .overflow-x-auto::-webkit-scrollbar-thumb:hover {
+      background: #555;
+    }
+
+    /* For full table vertical scroll */
+    .table-container {
+      max-height: 500px; /* Adjust as needed */
+      overflow-y: auto;
+    }
+    .table-container::-webkit-scrollbar {
+      width: 8px;
+    }
+    .table-container::-webkit-scrollbar-track {
+      background: #f1f1f1;
+      border-radius: 10px;
+    }
+    .table-container::-webkit-scrollbar-thumb {
+      background: #888;
+      border-radius: 10px;
+    }
+    .table-container::-webkit-scrollbar-thumb:hover {
+      background: #555;
+    }
+  </style>
 </head>
 <body class="bg-gray-100 text-gray-800">
   <div class="container mx-auto p-6">
@@ -113,7 +165,7 @@
       <button id="btn-latest-data" class="px-4 py-2 bg-indigo-600 text-white font-semibold rounded-lg hover:bg-indigo-700 transition">
         🔄 Data Terbaru
       </button>
-      <button onclick="if(confirm('Yakin ingin menghapus semua data energi?')) window.location.href='/api/reset-data'" class="px-4 py-2 bg-red-600 text-white font-semibold rounded-lg hover:bg-red-700 transition">
+      <button id="btn-reset-energy" class="px-4 py-2 bg-red-600 text-white font-semibold rounded-lg hover:bg-red-700 transition">
         🗑 Reset Data Energi
       </button>
       <button id="btn-reset-relay" class="px-4 py-2 bg-orange-600 text-white font-semibold rounded-lg hover:bg-orange-700 transition">
@@ -131,11 +183,11 @@
       </div>
     </div>
 
-    <div class="bg-white rounded-lg shadow-md overflow-hidden">
+    <div class="bg-white rounded-lg shadow-md overflow-hidden table-container">
       <h2 class="text-xl font-bold p-4 bg-blue-600 text-white">Data Konsumsi Energi</h2>
       <div class="overflow-x-auto">
         <table class="min-w-full">
-          <thead class="bg-blue-500 text-white">
+          <thead class="bg-blue-500 text-white sticky top-0 z-10">
             <tr>
               <th class="py-3 px-4 text-left">ID</th>
               <th class="py-3 px-4 text-left">Tanggal</th>
@@ -155,11 +207,11 @@
       </div>
     </div>
 
-    <div id="loading" class="hidden fixed top-4 right-4 bg-blue-600 text-white px-4 py-2 rounded-lg">
+    <div id="loading" class="hidden fixed top-4 right-4 bg-blue-600 text-white px-4 py-2 rounded-lg z-50">
       Memproses...
     </div>
     
-    <div id="notification" class="hidden fixed top-4 right-4 px-4 py-2 rounded-lg text-white font-semibold">
+    <div id="notification" class="hidden fixed top-4 right-4 px-4 py-2 rounded-lg text-white font-semibold z-50">
     </div>
   </div>
 
@@ -185,6 +237,7 @@
       btnOff: document.getElementById('btn-off'),
       relayHistory: document.getElementById('relay-history'),
       btnResetRelay: document.getElementById('btn-reset-relay'),
+      btnResetEnergy: document.getElementById('btn-reset-energy'),
       loading: document.getElementById('loading'),
       notification: document.getElementById('notification'),
       statisticsPanel: document.getElementById('statistics-panel'),
@@ -250,13 +303,14 @@
         const endDateVal = elements.endDate.value;
         elements.dataInfo.textContent = `Menampilkan data dari ${startDateVal} sampai ${endDateVal}`;
       } else {
-        elements.dataInfo.textContent = 'Menampilkan 20 data terbaru';
+        elements.dataInfo.textContent = 'Menampilkan 1 data terbaru'; // Changed text
       }
       elements.totalRecords.textContent = `Total: ${recordCount} record`;
     }
 
     // API calls with error handling
     async function apiCall(url, options = {}) {
+      showLoading(); // Show loading for every API call
       try {
         const response = await axios({
           url,
@@ -265,8 +319,10 @@
         });
         return response.data;
       } catch (error) {
-        console.error('API Error:', error);
+        console.error('API Error:', error.response ? error.response.data : error.message);
         throw error;
+      } finally {
+        hideLoading(); // Hide loading after API call finishes or fails
       }
     }
 
@@ -288,35 +344,46 @@
 
     // Fetch data with debouncing
     const fetchData = debounce(async function(filterDates = false) {
-      if (!state.selectedMac) return;
+      if (!state.selectedMac) {
+        if (filterDates) showNotification('Pilih perangkat terlebih dahulu', 'error');
+        return;
+      }
 
-      showLoading();
       let url;
       let isFiltered = false;
+      let dataToRender = []; // Initialize an empty array for rendering
 
       if (filterDates && elements.startDate.value && elements.endDate.value) {
         url = `/api/data?mac=${encodeURIComponent(state.selectedMac)}&start_date=${elements.startDate.value}&end_date=${elements.endDate.value}`;
         isFiltered = true;
       } else {
-        url = `/api/latest-data-20?mac=${encodeURIComponent(state.selectedMac)}`; // Asumsi endpoint untuk 20 data terbaru
+        // Updated URL for fetching ONLY the latest data
+        // Assume backend endpoint /api/latest-data-1 or modify /api/latest-data-20 to return just one
+        // For this example, let's assume /api/latest-data-20 will return 1 if we configure backend
+        url = `/api/latest-data?mac=${encodeURIComponent(state.selectedMac)}`; // Changed to just /api/latest-data
         elements.startDate.value = ''; // Clear date inputs
         elements.endDate.value = '';
       }
 
       try {
         const data = await apiCall(url);
-        state.currentData = data;
-        renderTable(data);
-        updateDataInfo(isFiltered, data.length);
+        
+        // If not filtered by date, and data is an array, take only the first element
+        // If backend returns a single object for latest-data, then this handles it too
         if (!isFiltered) {
-          showNotification('20 data terbaru berhasil dimuat');
+            dataToRender = Array.isArray(data) && data.length > 0 ? [data[0]] : (data ? [data] : []); // Take only the first item if array, else if single object, wrap it
+            showNotification('1 data terbaru berhasil dimuat');
         } else {
-          showNotification('Data filter berhasil dimuat');
+            dataToRender = data;
+            showNotification('Data filter berhasil dimuat');
         }
+
+        state.currentData = dataToRender; // Store what's actually rendered
+        renderTable(dataToRender);
+        updateDataInfo(isFiltered, dataToRender.length);
+
       } catch (error) {
         showNotification('Gagal mengambil data', 'error');
-      } finally {
-        hideLoading();
       }
     }, 300);
 
@@ -325,7 +392,7 @@
       elements.tableBody.innerHTML = '';
 
       if (data.length === 0) {
-        elements.tableBody.innerHTML = '<tr><td colspan="10" class="text-center py-4 text-gray-500">Tidak ada data untuk periode yang dipilih</td></tr>';
+        elements.tableBody.innerHTML = '<tr><td colspan="10" class="text-center py-4 text-gray-500">Tidak ada data untuk ditampilkan</td></tr>';
         return;
       }
 
@@ -337,10 +404,10 @@
           <td class="py-2 px-4">${row.id || '-'}</td>
           <td class="py-2 px-4">${row.tanggal || '-'}</td>
           <td class="py-2 px-4">${row.waktu || '-'}</td>
-          <td class="py-2 px-4">${row.tegangan ? row.tegangan + ' V' : '-'}</td>
-          <td class="py-2 px-4">${row.arus ? row.arus + ' A' : '-'}</td>
-          <td class="py-2 px-4">${row.daya ? row.daya + ' W' : '-'}</td>
-          <td class="py-2 px-4">${row.kwh || '-'}</td>
+          <td class="py-2 px-4">${row.tegangan !== undefined && row.tegangan !== null ? row.tegangan.toFixed(2) + ' V' : '-'}</td>
+          <td class="py-2 px-4">${row.arus !== undefined && row.arus !== null ? row.arus.toFixed(4) + ' A' : '-'}</td>
+          <td class="py-2 px-4">${row.daya !== undefined && row.daya !== null ? row.daya.toFixed(2) + ' W' : '-'}</td>
+          <td class="py-2 px-4">${row.kwh !== undefined && row.kwh !== null ? row.kwh.toFixed(6) + ' kWh' : '-'}</td>
           <td class="py-2 px-4 font-mono text-sm">${row.mac_address || '-'}</td>
           <td class="py-2 px-4">
             ${row.relay_status ? `<span class="px-2 py-1 rounded text-xs font-bold ${
@@ -355,37 +422,6 @@
       elements.tableBody.appendChild(fragment);
     }
 
-    // Fetch latest data (This function is no longer needed as `fetchData` handles it)
-    // You can keep it if you specifically want a button to fetch *only one* latest record
-    // but the `fetchData` function with no date filter now gets 20.
-    async function fetchLatestSingleData() {
-      if (!state.selectedMac) {
-        showNotification('Pilih perangkat terlebih dahulu', 'error');
-        return;
-      }
-
-      showLoading();
-      try {
-        const data = await apiCall('/api/latest-data?mac=' + encodeURIComponent(state.selectedMac));
-        
-        if (Object.keys(data).length === 0) {
-          showNotification('Tidak ada data untuk perangkat ini', 'error');
-          return;
-        }
-
-        renderTable([data]);
-        state.currentData = [data];
-        updateDataInfo(false, 1); // Only 1 record
-        
-        showNotification('Data terbaru berhasil dimuat');
-      } catch (error) {
-        showNotification('Gagal mengambil data terbaru', 'error');
-      } finally {
-        hideLoading();
-      }
-    }
-
-
     // Fetch statistics
     async function fetchStatistics() {
       if (!state.selectedMac) {
@@ -399,36 +435,34 @@
         url += `&start_date=${elements.startDate.value}&end_date=${elements.endDate.value}`;
       }
 
-      showLoading();
       try {
         const data = await apiCall(url);
         const stats = data.statistics;
         
         document.getElementById('stat-voltage').textContent = stats.average_voltage !== null ? stats.average_voltage.toFixed(2) + ' V' : '-';
-        document.getElementById('stat-current').textContent = stats.average_current !== null ? stats.average_current.toFixed(2) + ' A' : '-';
+        document.getElementById('stat-current').textContent = stats.average_current !== null ? stats.average_current.toFixed(4) + ' A' : '-';
         document.getElementById('stat-power').textContent = stats.average_power !== null ? stats.average_power.toFixed(2) + ' W' : '-';
         document.getElementById('stat-total-power').textContent = stats.total_power !== null ? stats.total_power.toFixed(2) + ' W' : '-';
-        document.getElementById('stat-consumption').textContent = stats.energy_range.consumption_kwh !== null ? stats.energy_range.consumption_kwh.toFixed(4) + ' kWh' : '-';
+        document.getElementById('stat-consumption').textContent = stats.energy_range && stats.energy_range.consumption_kwh !== null ? stats.energy_range.consumption_kwh.toFixed(4) + ' kWh' : '-';
         document.getElementById('stat-records').textContent = stats.total_records !== null ? stats.total_records : '-';
         
         elements.statisticsPanel.classList.remove('hidden');
         showNotification('Statistik berhasil dimuat');
       } catch (error) {
         showNotification('Gagal mengambil statistik', 'error');
-      } finally {
-        hideLoading();
       }
     }
 
     // Export CSV
-    function exportCSV() {
+    async function exportCSV() {
       if (!state.selectedMac) {
         showNotification('Pilih perangkat terlebih dahulu', 'error');
         return;
       }
 
-      if (state.currentData.length === 0) {
-        showNotification('Tidak ada data untuk diekspor', 'error');
+      // Check if currentData has relevant data based on filters or latest
+      if (state.currentData.length === 0 && (!elements.startDate.value || !elements.endDate.value)) {
+        showNotification('Tidak ada data terbaru untuk diekspor. Coba terapkan filter tanggal.', 'error');
         return;
       }
 
@@ -437,22 +471,32 @@
       if (elements.startDate.value && elements.endDate.value) {
         url += `&start_date=${elements.startDate.value}&end_date=${elements.endDate.value}`;
       } else {
-        // If no date filter, export all data for the selected MAC
-        url += '&all_data=true'; // Add a parameter to signal exporting all data
+        // If no date filter is active, request all data for the selected MAC
+        url += '&all_data=true'; 
       }
 
+      try {
+        const response = await axios({
+            url: url,
+            method: 'GET',
+            responseType: 'blob', // Important for file downloads
+            timeout: 30000 // Increased timeout for potentially large exports
+        });
 
-      showLoading();
-      
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `energy_data_${state.selectedMac.replace(/:/g, '')}_${new Date().toISOString().split('T')[0]}.csv`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      
-      hideLoading();
-      showNotification('File CSV berhasil diunduh');
+        const blob = new Blob([response.data], { type: 'text/csv' });
+        const downloadUrl = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = downloadUrl;
+        link.download = `energy_data_${state.selectedMac.replace(/:/g, '')}_${new Date().toISOString().split('T')[0]}.csv`;
+        document.body.appendChild(link);
+        link.click();
+        link.remove(); // Clean up the DOM
+        window.URL.revokeObjectURL(downloadUrl); // Free up memory
+
+        showNotification('File CSV berhasil diunduh');
+      } catch (error) {
+        showNotification('Gagal mengunduh file CSV', 'error');
+      }
     }
 
     // Fetch relay status
@@ -460,8 +504,11 @@
       if (!state.selectedMac) return;
 
       try {
-        const response = await apiCall('/api/relay-status?mac=' + encodeURIComponent(state.selectedMac));
-        const status = response.status;
+        const response = await axios({
+            url: '/api/relay-status?mac=' + encodeURIComponent(state.selectedMac),
+            timeout: 5000
+        });
+        const status = response.data.status;
         elements.relayStatus.textContent = status;
         
         if (status === 'ON') {
@@ -481,18 +528,21 @@
       if (!state.selectedMac) return;
 
       try {
-        const history = await apiCall('/api/relay-history?mac=' + encodeURIComponent(state.selectedMac));
+        const history = await axios({
+            url: '/api/relay-history?mac=' + encodeURIComponent(state.selectedMac),
+            timeout: 5000
+        });
         elements.relayHistory.innerHTML = '';
 
-        if (history.length === 0) {
+        if (history.data.length === 0) {
           elements.relayHistory.innerHTML = '<tr><td colspan="2" class="text-center py-2 text-gray-500">Tidak ada riwayat</td></tr>';
           return;
         }
 
         const fragment = document.createDocumentFragment();
-        history.forEach(item => {
+        history.data.forEach(item => {
           const tr = document.createElement('tr');
-          const timestamp = item.timestamp || `${item.tanggal} ${item.waktu}`;
+          const timestamp = item.timestamp ? new Date(item.timestamp).toLocaleString('id-ID', {year: 'numeric', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit'}) : `${item.tanggal} ${item.waktu}`;
           const statusClass = item.relay_status === 'ON' ? 'text-green-600 font-bold' : 'text-red-600 font-bold';
           
           tr.innerHTML = `
@@ -514,7 +564,6 @@
         return;
       }
 
-      showLoading();
       try {
         await apiCall('/api/relay-control', {
           method: 'POST',
@@ -525,12 +574,10 @@
         });
         
         showNotification(`Relay berhasil di${status === 'ON' ? 'nyalakan' : 'matikan'}`);
-        await fetchRelayStatus();
-        await fetchRelayHistory();
+        fetchRelayStatus(); 
+        fetchRelayHistory();
       } catch (error) {
         showNotification('Gagal mengontrol relay', 'error');
-      } finally {
-        hideLoading();
       }
     }
 
@@ -539,20 +586,13 @@
       clearAllIntervals();
       
       if (state.selectedMac) {
-        // Auto refresh data setiap 30 detik (hanya jika tidak ada filter tanggal)
         state.intervals.dataRefresh = setInterval(() => {
-          if (state.selectedMac && !elements.startDate.value && !elements.endDate.value && !state.isLoading) {
-            fetchData(false); // Ambil 20 data terbaru secara otomatis
-            fetchRelayStatus();
+          if (!elements.startDate.value && !elements.endDate.value && !state.isLoading) {
+            fetchData(false); // Ambil 1 data terbaru secara otomatis
           }
-        }, 30000);
-
-        // Auto refresh riwayat setiap 15 detik
-        state.intervals.relayRefresh = setInterval(() => {
-          if (state.selectedMac && !state.isLoading) {
-            fetchRelayHistory();
-          }
-        }, 15000);
+          fetchRelayStatus();
+          fetchRelayHistory();
+        }, 30000); // Main data refresh and all relay updates
       }
     }
 
@@ -563,12 +603,14 @@
         state.selectedMac = e.target.value;
         
         clearAllIntervals();
-        elements.statisticsPanel.classList.add('hidden'); // Sembunyikan panel statistik saat perangkat berubah
+        elements.statisticsPanel.classList.add('hidden');
+        elements.startDate.value = '';
+        elements.endDate.value = '';
 
         if (state.selectedMac) {
           elements.relayPanel.classList.remove('hidden');
           await Promise.all([
-            fetchData(false), // Fetch 20 latest data by default
+            fetchData(false), // Fetch 1 latest data by default
             fetchRelayStatus(),
             fetchRelayHistory()
           ]);
@@ -578,7 +620,7 @@
           elements.statisticsPanel.classList.add('hidden');
           elements.tableBody.innerHTML = '';
           state.currentData = [];
-          updateDataInfo(false, 0); // Reset info
+          updateDataInfo(false, 0);
         }
       });
 
@@ -606,7 +648,10 @@
         elements.endDate.value = '';
         elements.statisticsPanel.classList.add('hidden');
         if (state.selectedMac) {
-          fetchData(false); // Fetch 20 latest data after clearing filter
+          fetchData(false); // Fetch 1 latest data after clearing filter
+        } else {
+          updateDataInfo(false, 0);
+          elements.tableBody.innerHTML = '<tr><td colspan="10" class="text-center py-4 text-gray-500">Pilih perangkat terlebih dahulu</td></tr>';
         }
       });
 
@@ -614,32 +659,48 @@
       elements.btnExportCsv.addEventListener('click', exportCSV);
       elements.btnStatistics.addEventListener('click', fetchStatistics);
       elements.btnLatestData.addEventListener('click', () => {
-        // This button now ensures the date filters are cleared and displays latest 20 data
         elements.startDate.value = '';
         elements.endDate.value = '';
         elements.statisticsPanel.classList.add('hidden');
         if (state.selectedMac) {
-          fetchData(false);
+          fetchData(false); // Explicitly fetch 1 latest data
         } else {
           showNotification('Pilih perangkat terlebih dahulu', 'error');
         }
       });
 
-      // Reset relay button
-      elements.btnResetRelay.addEventListener('click', async () => {
-        if (confirm('Yakin ingin menghapus semua data riwayat relay?')) {
-          showLoading();
+      // Reset energy data button
+      elements.btnResetEnergy.addEventListener('click', async () => {
+        if (confirm('Yakin ingin menghapus semua data energi? Tindakan ini tidak dapat dibatalkan.')) {
           try {
-            await apiCall('/api/reset-relay-data', { method: 'POST' }); // Ensure it's a POST request
-            showNotification('Data relay berhasil direset');
+            await apiCall('/api/reset-data', { method: 'POST' });
+            showNotification('Data energi berhasil direset');
             if (state.selectedMac) {
-              await fetchRelayHistory();
-              await fetchData(false); // Refresh main data to reflect any relay status changes
+              fetchData(false); // Refresh data table (will show 1 latest, which is now empty or new)
+              elements.statisticsPanel.classList.add('hidden');
+            } else {
+              elements.tableBody.innerHTML = '<tr><td colspan="10" class="text-center py-4 text-gray-500">Data energi telah direset</td></tr>';
+              updateDataInfo(false, 0);
             }
           } catch (error) {
-            showNotification('Gagal reset data relay', 'error');
-          } finally {
-            hideLoading();
+            showNotification('Gagal mereset data energi', 'error');
+          }
+        }
+      });
+
+      // Reset relay button
+      elements.btnResetRelay.addEventListener('click', async () => {
+        if (confirm('Yakin ingin menghapus semua data riwayat relay? Tindakan ini tidak dapat dibatalkan.')) {
+          try {
+            await apiCall('/api/reset-relay-data', { method: 'POST' });
+            showNotification('Data riwayat relay berhasil direset');
+            if (state.selectedMac) {
+              fetchRelayHistory();
+            } else {
+              elements.relayHistory.innerHTML = '<tr><td colspan="2" class="text-center py-2 text-gray-500">Riwayat relay telah direset</td></tr>';
+            }
+          } catch (error) {
+            showNotification('Gagal mereset data riwayat relay', 'error');
           }
         }
       });
@@ -647,7 +708,9 @@
 
     // Initialize app
     async function init() {
-      updateDataInfo(false, 0); // Initialize with 0 records and latest data info
+      updateDataInfo(false, 0);
+      elements.tableBody.innerHTML = '<tr><td colspan="10" class="text-center py-4 text-gray-500">Pilih perangkat dari daftar di atas</td></tr>';
+      
       setupEventListeners();
       
       try {
