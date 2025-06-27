@@ -53,7 +53,7 @@
     </div>
 
     <div class="mb-6 bg-white p-4 rounded-lg shadow-md">
-      <h3 class="text-lg font-semibold mb-4 text-gray-700">Filter Data Berdasarkan Tanggal & Waktu</h3>
+      <h3 class="text-lg font-semibold mb-4 text-gray-700">Filter Data Berdasarkan Tanggal</h3>
       <div class="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
         <div>
           <label for="start-date" class="block text-sm font-medium text-gray-700 mb-1">Tanggal Mulai:</label>
@@ -64,17 +64,11 @@
           <input type="date" id="end-date" class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500">
         </div>
         <div>
-          <label for="start-time" class="block text-sm font-medium text-gray-700 mb-1">Jam Mulai:</label>
-          <input type="time" id="start-time" class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500">
-        </div>
-        <div>
-          <label for="end-time" class="block text-sm font-medium text-gray-700 mb-1">Jam Akhir:</label>
-          <input type="time" id="end-time" class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500">
-        </div>
-        <div class="md:col-span-2 grid grid-cols-2 gap-4">
           <button id="btn-filter" class="w-full px-4 py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition">
             🔍 Filter Data
           </button>
+        </div>
+        <div>
           <button id="btn-clear-filter" class="w-full px-4 py-2 bg-gray-600 text-white font-semibold rounded-lg hover:bg-gray-700 transition">
             🗑 Reset Filter
           </button>
@@ -196,10 +190,6 @@
       statisticsPanel: document.getElementById('statistics-panel'),
       startDate: document.getElementById('start-date'),
       endDate: document.getElementById('end-date'),
-      // Tambahan: Elemen input jam
-      startTime: document.getElementById('start-time'),
-      endTime: document.getElementById('end-time'),
-      // Akhir Tambahan
       btnFilter: document.getElementById('btn-filter'),
       btnClearFilter: document.getElementById('btn-clear-filter'),
       btnExportCsv: document.getElementById('btn-export-csv'),
@@ -258,15 +248,7 @@
       if (isFiltered) {
         const startDateVal = elements.startDate.value;
         const endDateVal = elements.endDate.value;
-        const startTimeVal = elements.startTime.value; // Ambil nilai jam mulai
-        const endTimeVal = elements.endTime.value;     // Ambil nilai jam akhir
-
-        let infoText = `Menampilkan data dari ${startDateVal}`;
-        if (startTimeVal) infoText += ` ${startTimeVal}`;
-        infoText += ` sampai ${endDateVal}`;
-        if (endTimeVal) infoText += ` ${endTimeVal}`;
-        
-        elements.dataInfo.textContent = infoText;
+        elements.dataInfo.textContent = `Menampilkan data dari ${startDateVal} sampai ${endDateVal}`;
       } else {
         elements.dataInfo.textContent = 'Menampilkan 20 data terbaru';
       }
@@ -314,21 +296,11 @@
 
       if (filterDates && elements.startDate.value && elements.endDate.value) {
         url = `/api/data?mac=${encodeURIComponent(state.selectedMac)}&start_date=${elements.startDate.value}&end_date=${elements.endDate.value}`;
-        // Tambahan: Tambahkan parameter jam jika ada
-        if (elements.startTime.value) {
-          url += `&start_time=${elements.startTime.value}`;
-        }
-        if (elements.endTime.value) {
-          url += `&end_time=${elements.endTime.value}`;
-        }
-        // Akhir Tambahan
         isFiltered = true;
       } else {
         url = `/api/latest-data-20?mac=${encodeURIComponent(state.selectedMac)}`; // Asumsi endpoint untuk 20 data terbaru
         elements.startDate.value = ''; // Clear date inputs
         elements.endDate.value = '';
-        elements.startTime.value = ''; // Tambahan: Clear time inputs
-        elements.endTime.value = '';   // Tambahan: Clear time inputs
       }
 
       try {
@@ -425,14 +397,6 @@
       
       if (elements.startDate.value && elements.endDate.value) {
         url += `&start_date=${elements.startDate.value}&end_date=${elements.endDate.value}`;
-        // Tambahan: Tambahkan parameter jam jika ada
-        if (elements.startTime.value) {
-          url += `&start_time=${elements.startTime.value}`;
-        }
-        if (elements.endTime.value) {
-          url += `&end_time=${elements.endTime.value}`;
-        }
-        // Akhir Tambahan
       }
 
       showLoading();
@@ -463,8 +427,8 @@
         return;
       }
 
-      if (state.currentData.length === 0 && (!elements.startDate.value || !elements.endDate.value)) {
-        showNotification('Tidak ada data untuk diekspor (filter tanggal kosong)', 'error');
+      if (state.currentData.length === 0) {
+        showNotification('Tidak ada data untuk diekspor', 'error');
         return;
       }
 
@@ -472,14 +436,6 @@
       
       if (elements.startDate.value && elements.endDate.value) {
         url += `&start_date=${elements.startDate.value}&end_date=${elements.endDate.value}`;
-        // Tambahan: Tambahkan parameter jam jika ada
-        if (elements.startTime.value) {
-          url += `&start_time=${elements.startTime.value}`;
-        }
-        if (elements.endTime.value) {
-          url += `&end_time=${elements.endTime.value}`;
-        }
-        // Akhir Tambahan
       } else {
         // If no date filter, export all data for the selected MAC
         url += '&all_data=true'; // Add a parameter to signal exporting all data
@@ -583,9 +539,9 @@
       clearAllIntervals();
       
       if (state.selectedMac) {
-        // Auto refresh data setiap 30 detik (hanya jika tidak ada filter tanggal/jam)
+        // Auto refresh data setiap 30 detik (hanya jika tidak ada filter tanggal)
         state.intervals.dataRefresh = setInterval(() => {
-          if (state.selectedMac && !elements.startDate.value && !elements.endDate.value && !elements.startTime.value && !elements.endTime.value && !state.isLoading) {
+          if (state.selectedMac && !elements.startDate.value && !elements.endDate.value && !state.isLoading) {
             fetchData(false); // Ambil 20 data terbaru secara otomatis
             fetchRelayStatus();
           }
@@ -611,12 +567,6 @@
 
         if (state.selectedMac) {
           elements.relayPanel.classList.remove('hidden');
-          // Reset filter tanggal dan jam saat perangkat diubah
-          elements.startDate.value = '';
-          elements.endDate.value = '';
-          elements.startTime.value = '';
-          elements.endTime.value = '';
-
           await Promise.all([
             fetchData(false), // Fetch 20 latest data by default
             fetchRelayStatus(),
@@ -638,9 +588,8 @@
 
       // Filter buttons
       elements.btnFilter.addEventListener('click', () => {
-        // Validasi minimal tanggal harus terisi untuk filter tanggal/jam
         if (!elements.startDate.value || !elements.endDate.value) {
-          showNotification('Pilih tanggal mulai dan akhir untuk memfilter', 'error');
+          showNotification('Pilih tanggal mulai dan akhir', 'error');
           return;
         }
         
@@ -648,27 +597,13 @@
           showNotification('Tanggal mulai tidak boleh lebih besar dari tanggal akhir', 'error');
           return;
         }
-
-        // Jika jam diisi, validasi juga
-        if (elements.startDate.value === elements.endDate.value && elements.startTime.value && elements.endTime.value) {
-            if (elements.startTime.value >= elements.endTime.value) {
-                showNotification('Jam mulai harus lebih kecil dari jam akhir jika tanggal sama', 'error');
-                return;
-            }
-        }
         
-        // Panggil fetchStatistics untuk menampilkan statistik dengan filter
-        fetchStatistics(); 
-        // Anda juga bisa memanggil fetchData(true) jika ingin tabel data juga ikut terfilter berdasarkan jam,
-        // namun biasanya filter jam lebih relevan untuk statistik.
-        // fetchData(true);
+        fetchData(true); // Fetch data with date filter
       });
 
       elements.btnClearFilter.addEventListener('click', () => {
         elements.startDate.value = '';
         elements.endDate.value = '';
-        elements.startTime.value = ''; // Reset jam
-        elements.endTime.value = '';   // Reset jam
         elements.statisticsPanel.classList.add('hidden');
         if (state.selectedMac) {
           fetchData(false); // Fetch 20 latest data after clearing filter
@@ -677,14 +612,11 @@
 
       // Action buttons
       elements.btnExportCsv.addEventListener('click', exportCSV);
-      // Tombol Lihat Statistik sekarang akan memanggil fetchStatistics dengan potensi filter waktu
-      elements.btnStatistics.addEventListener('click', fetchStatistics); 
+      elements.btnStatistics.addEventListener('click', fetchStatistics);
       elements.btnLatestData.addEventListener('click', () => {
-        // This button now ensures the date and time filters are cleared and displays latest 20 data
+        // This button now ensures the date filters are cleared and displays latest 20 data
         elements.startDate.value = '';
         elements.endDate.value = '';
-        elements.startTime.value = ''; // Clear jam
-        elements.endTime.value = '';   // Clear jam
         elements.statisticsPanel.classList.add('hidden');
         if (state.selectedMac) {
           fetchData(false);
