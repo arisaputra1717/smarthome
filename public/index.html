@@ -11,7 +11,6 @@
   <div class="container mx-auto p-6">
     <h1 class="text-3xl font-bold mb-6 text-center text-blue-800">Smart Home Control Panel</h1>
 
-    <!-- Dropdown Pilih MAC Address -->
     <div class="mb-6 text-center bg-white p-4 rounded-lg shadow-md">
       <label for="mac-select" class="font-semibold mr-2 text-lg">Pilih Perangkat:</label>
       <select id="mac-select" class="px-4 py-2 border rounded-lg text-lg min-w-64">
@@ -19,17 +18,14 @@
       </select>
     </div>
 
-    <!-- Panel Kontrol Relay -->
     <div id="relay-panel" class="mb-6 bg-white p-6 rounded-lg shadow-md hidden">
       <h2 class="text-xl font-bold mb-4 text-center text-green-700">Kontrol Relay</h2>
       
-      <!-- Status Relay -->
       <div class="text-center mb-4">
         <span class="text-lg font-semibold">Status: </span>
         <span id="relay-status" class="px-3 py-1 rounded-full text-white font-bold">UNKNOWN</span>
       </div>
 
-      <!-- Tombol Kontrol -->
       <div class="flex justify-center space-x-4 mb-4">
         <button id="btn-on" class="px-6 py-3 bg-green-600 text-white font-bold rounded-lg hover:bg-green-700 transition transform hover:scale-105">
           🔌 NYALAKAN
@@ -39,7 +35,6 @@
         </button>
       </div>
 
-      <!-- Riwayat Kontrol Relay -->
       <div class="mt-6">
         <h3 class="text-lg font-semibold mb-3 text-gray-700">Riwayat Status Relay (dari Perangkat)</h3>
         <div class="max-h-40 overflow-y-auto">
@@ -51,14 +46,12 @@
               </tr>
             </thead>
             <tbody id="relay-history" class="divide-y divide-gray-200">
-              <!-- Riwayat akan ditampilkan di sini -->
-            </tbody>
+              </tbody>
           </table>
         </div>
       </div>
     </div>
 
-    <!-- Filter Tanggal -->
     <div class="mb-6 bg-white p-4 rounded-lg shadow-md">
       <h3 class="text-lg font-semibold mb-4 text-gray-700">Filter Data Berdasarkan Tanggal</h3>
       <div class="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
@@ -83,7 +76,6 @@
       </div>
     </div>
 
-    <!-- Statistik Panel -->
     <div id="statistics-panel" class="mb-6 bg-white p-6 rounded-lg shadow-md hidden">
       <h3 class="text-lg font-semibold mb-4 text-gray-700">Statistik Konsumsi Energi</h3>
       <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -114,7 +106,6 @@
       </div>
     </div>
 
-    <!-- Tombol Reset dan Export -->
     <div class="text-center mb-6 flex flex-wrap justify-center gap-4">
       <button id="btn-statistics" class="px-4 py-2 bg-purple-600 text-white font-semibold rounded-lg hover:bg-purple-700 transition">
         📊 Lihat Statistik
@@ -133,7 +124,6 @@
       </button>
     </div>
 
-    <!-- Informasi Data -->
     <div class="mb-4 bg-blue-50 p-3 rounded-lg">
       <div class="flex flex-wrap justify-between items-center text-sm text-blue-800">
         <span id="data-info">Menampilkan data terbaru</span>
@@ -141,7 +131,6 @@
       </div>
     </div>
 
-    <!-- Tabel Data Konsumsi Energi -->
     <div class="bg-white rounded-lg shadow-md overflow-hidden">
       <h2 class="text-xl font-bold p-4 bg-blue-600 text-white">Data Konsumsi Energi</h2>
       <div class="overflow-x-auto">
@@ -161,13 +150,11 @@
             </tr>
           </thead>
           <tbody id="data-table" class="divide-y divide-gray-200">
-            <!-- Data akan ditampilkan di sini -->
-          </tbody>
+            </tbody>
         </table>
       </div>
     </div>
 
-    <!-- Loading dan Status -->
     <div id="loading" class="hidden fixed top-4 right-4 bg-blue-600 text-white px-4 py-2 rounded-lg">
       Memproses...
     </div>
@@ -211,16 +198,6 @@
       dataInfo: document.getElementById('data-info'),
       totalRecords: document.getElementById('total-records')
     };
-
-    // Set default dates (last 7 days)
-    function setDefaultDates() {
-      const today = new Date();
-      const weekAgo = new Date(today);
-      weekAgo.setDate(today.getDate() - 7);
-      
-      elements.endDate.value = today.toISOString().split('T')[0];
-      elements.startDate.value = weekAgo.toISOString().split('T')[0];
-    }
 
     // Utility functions
     function showNotification(message, type = 'success') {
@@ -267,17 +244,15 @@
     }
 
     // Update info data
-    function updateDataInfo() {
-      const startDateVal = elements.startDate.value;
-      const endDateVal = elements.endDate.value;
-      
-      if (startDateVal && endDateVal) {
+    function updateDataInfo(isFiltered = false, recordCount = 0) {
+      if (isFiltered) {
+        const startDateVal = elements.startDate.value;
+        const endDateVal = elements.endDate.value;
         elements.dataInfo.textContent = `Menampilkan data dari ${startDateVal} sampai ${endDateVal}`;
       } else {
-        elements.dataInfo.textContent = 'Menampilkan data terbaru (20 record terakhir)';
+        elements.dataInfo.textContent = 'Menampilkan 20 data terbaru';
       }
-      
-      elements.totalRecords.textContent = Total: ${state.currentData.length} record;
+      elements.totalRecords.textContent = `Total: ${recordCount} record`;
     }
 
     // API calls with error handling
@@ -303,7 +278,7 @@
         macs.forEach(mac => {
           const option = document.createElement('option');
           option.value = mac.mac_address;
-          option.textContent = 📱 ${mac.mac_address};
+          option.textContent = `📱 ${mac.mac_address}`;
           elements.macSelect.appendChild(option);
         });
       } catch (error) {
@@ -312,22 +287,36 @@
     }
 
     // Fetch data with debouncing
-    const fetchData = debounce(async function() {
-      if (!state.selectedMac || state.isLoading) return;
+    const fetchData = debounce(async function(filterDates = false) {
+      if (!state.selectedMac) return;
 
-      let url = '/api/data?mac=' + encodeURIComponent(state.selectedMac);
-      
-      if (elements.startDate.value && elements.endDate.value) {
-        url += &start_date=${elements.startDate.value}&end_date=${elements.endDate.value};
+      showLoading();
+      let url;
+      let isFiltered = false;
+
+      if (filterDates && elements.startDate.value && elements.endDate.value) {
+        url = `/api/data?mac=${encodeURIComponent(state.selectedMac)}&start_date=${elements.startDate.value}&end_date=${elements.endDate.value}`;
+        isFiltered = true;
+      } else {
+        url = `/api/latest-data-20?mac=${encodeURIComponent(state.selectedMac)}`; // Asumsi endpoint untuk 20 data terbaru
+        elements.startDate.value = ''; // Clear date inputs
+        elements.endDate.value = '';
       }
 
       try {
         const data = await apiCall(url);
         state.currentData = data;
         renderTable(data);
-        updateDataInfo();
+        updateDataInfo(isFiltered, data.length);
+        if (!isFiltered) {
+          showNotification('20 data terbaru berhasil dimuat');
+        } else {
+          showNotification('Data filter berhasil dimuat');
+        }
       } catch (error) {
         showNotification('Gagal mengambil data', 'error');
+      } finally {
+        hideLoading();
       }
     }, 300);
 
@@ -366,8 +355,10 @@
       elements.tableBody.appendChild(fragment);
     }
 
-    // Fetch latest data
-    async function fetchLatestData() {
+    // Fetch latest data (This function is no longer needed as `fetchData` handles it)
+    // You can keep it if you specifically want a button to fetch *only one* latest record
+    // but the `fetchData` function with no date filter now gets 20.
+    async function fetchLatestSingleData() {
       if (!state.selectedMac) {
         showNotification('Pilih perangkat terlebih dahulu', 'error');
         return;
@@ -384,8 +375,7 @@
 
         renderTable([data]);
         state.currentData = [data];
-        elements.dataInfo.textContent = 'Menampilkan data terbaru';
-        elements.totalRecords.textContent = 'Total: 1 record (terbaru)';
+        updateDataInfo(false, 1); // Only 1 record
         
         showNotification('Data terbaru berhasil dimuat');
       } catch (error) {
@@ -394,6 +384,7 @@
         hideLoading();
       }
     }
+
 
     // Fetch statistics
     async function fetchStatistics() {
@@ -405,7 +396,7 @@
       let url = '/api/statistics?mac=' + encodeURIComponent(state.selectedMac);
       
       if (elements.startDate.value && elements.endDate.value) {
-        url += &start_date=${elements.startDate.value}&end_date=${elements.endDate.value};
+        url += `&start_date=${elements.startDate.value}&end_date=${elements.endDate.value}`;
       }
 
       showLoading();
@@ -413,12 +404,12 @@
         const data = await apiCall(url);
         const stats = data.statistics;
         
-        document.getElementById('stat-voltage').textContent = stats.average_voltage + ' V';
-        document.getElementById('stat-current').textContent = stats.average_current + ' A';
-        document.getElementById('stat-power').textContent = stats.average_power + ' W';
-        document.getElementById('stat-total-power').textContent = stats.total_power + ' W';
-        document.getElementById('stat-consumption').textContent = stats.energy_range.consumption_kwh + ' kWh';
-        document.getElementById('stat-records').textContent = stats.total_records;
+        document.getElementById('stat-voltage').textContent = stats.average_voltage !== null ? stats.average_voltage.toFixed(2) + ' V' : '-';
+        document.getElementById('stat-current').textContent = stats.average_current !== null ? stats.average_current.toFixed(2) + ' A' : '-';
+        document.getElementById('stat-power').textContent = stats.average_power !== null ? stats.average_power.toFixed(2) + ' W' : '-';
+        document.getElementById('stat-total-power').textContent = stats.total_power !== null ? stats.total_power.toFixed(2) + ' W' : '-';
+        document.getElementById('stat-consumption').textContent = stats.energy_range.consumption_kwh !== null ? stats.energy_range.consumption_kwh.toFixed(4) + ' kWh' : '-';
+        document.getElementById('stat-records').textContent = stats.total_records !== null ? stats.total_records : '-';
         
         elements.statisticsPanel.classList.remove('hidden');
         showNotification('Statistik berhasil dimuat');
@@ -444,14 +435,18 @@
       let url = '/api/export-csv?mac=' + encodeURIComponent(state.selectedMac);
       
       if (elements.startDate.value && elements.endDate.value) {
-        url += &start_date=${elements.startDate.value}&end_date=${elements.endDate.value};
+        url += `&start_date=${elements.startDate.value}&end_date=${elements.endDate.value}`;
+      } else {
+        // If no date filter, export all data for the selected MAC
+        url += '&all_data=true'; // Add a parameter to signal exporting all data
       }
+
 
       showLoading();
       
       const link = document.createElement('a');
       link.href = url;
-      link.download = energy_data_${state.selectedMac.replace(/:/g, '')}_${new Date().toISOString().split('T')[0]}.csv;
+      link.download = `energy_data_${state.selectedMac.replace(/:/g, '')}_${new Date().toISOString().split('T')[0]}.csv`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -497,7 +492,7 @@
         const fragment = document.createDocumentFragment();
         history.forEach(item => {
           const tr = document.createElement('tr');
-          const timestamp = item.timestamp || ${item.tanggal} ${item.waktu};
+          const timestamp = item.timestamp || `${item.tanggal} ${item.waktu}`;
           const statusClass = item.relay_status === 'ON' ? 'text-green-600 font-bold' : 'text-red-600 font-bold';
           
           tr.innerHTML = `
@@ -529,7 +524,7 @@
           }
         });
         
-        showNotification(Relay berhasil di${status === 'ON' ? 'nyalakan' : 'matikan'});
+        showNotification(`Relay berhasil di${status === 'ON' ? 'nyalakan' : 'matikan'}`);
         await fetchRelayStatus();
         await fetchRelayHistory();
       } catch (error) {
@@ -547,7 +542,7 @@
         // Auto refresh data setiap 30 detik (hanya jika tidak ada filter tanggal)
         state.intervals.dataRefresh = setInterval(() => {
           if (state.selectedMac && !elements.startDate.value && !elements.endDate.value && !state.isLoading) {
-            fetchData();
+            fetchData(false); // Ambil 20 data terbaru secara otomatis
             fetchRelayStatus();
           }
         }, 30000);
@@ -568,11 +563,12 @@
         state.selectedMac = e.target.value;
         
         clearAllIntervals();
-        
+        elements.statisticsPanel.classList.add('hidden'); // Sembunyikan panel statistik saat perangkat berubah
+
         if (state.selectedMac) {
           elements.relayPanel.classList.remove('hidden');
           await Promise.all([
-            fetchData(),
+            fetchData(false), // Fetch 20 latest data by default
             fetchRelayStatus(),
             fetchRelayHistory()
           ]);
@@ -582,7 +578,7 @@
           elements.statisticsPanel.classList.add('hidden');
           elements.tableBody.innerHTML = '';
           state.currentData = [];
-          updateDataInfo();
+          updateDataInfo(false, 0); // Reset info
         }
       });
 
@@ -602,7 +598,7 @@
           return;
         }
         
-        fetchData();
+        fetchData(true); // Fetch data with date filter
       });
 
       elements.btnClearFilter.addEventListener('click', () => {
@@ -610,25 +606,35 @@
         elements.endDate.value = '';
         elements.statisticsPanel.classList.add('hidden');
         if (state.selectedMac) {
-          fetchData();
+          fetchData(false); // Fetch 20 latest data after clearing filter
         }
       });
 
       // Action buttons
       elements.btnExportCsv.addEventListener('click', exportCSV);
       elements.btnStatistics.addEventListener('click', fetchStatistics);
-      elements.btnLatestData.addEventListener('click', fetchLatestData);
+      elements.btnLatestData.addEventListener('click', () => {
+        // This button now ensures the date filters are cleared and displays latest 20 data
+        elements.startDate.value = '';
+        elements.endDate.value = '';
+        elements.statisticsPanel.classList.add('hidden');
+        if (state.selectedMac) {
+          fetchData(false);
+        } else {
+          showNotification('Pilih perangkat terlebih dahulu', 'error');
+        }
+      });
 
       // Reset relay button
       elements.btnResetRelay.addEventListener('click', async () => {
         if (confirm('Yakin ingin menghapus semua data riwayat relay?')) {
           showLoading();
           try {
-            await apiCall('/api/reset-relay-data');
+            await apiCall('/api/reset-relay-data', { method: 'POST' }); // Ensure it's a POST request
             showNotification('Data relay berhasil direset');
             if (state.selectedMac) {
               await fetchRelayHistory();
-              await fetchData();
+              await fetchData(false); // Refresh main data to reflect any relay status changes
             }
           } catch (error) {
             showNotification('Gagal reset data relay', 'error');
@@ -641,8 +647,7 @@
 
     // Initialize app
     async function init() {
-      setDefaultDates();
-      updateDataInfo();
+      updateDataInfo(false, 0); // Initialize with 0 records and latest data info
       setupEventListeners();
       
       try {
